@@ -1,0 +1,9 @@
+{
+  "measurements": { "house": {}, "second": {}, "raw_meter": {} },
+  "actions_live": { "active_slots": [] },
+  "triac_open_percent": 0,
+  "temperature_c": 20,
+  "time": "",
+  "date_valid": false,
+  "source": "UxIx2"
+}

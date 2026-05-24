@@ -1,0 +1,5 @@
+{
+  "name": "HELIO_TEST Pw",
+  "state_topic": "homeassistant/HELIO_TEST_state",
+  "unique_id": "HELIO_TEST_Pw"
+}

@@ -1,0 +1,4 @@
+{
+  "description": "Top-level keys on GET /api/v1/health",
+  "required_keys": ["ok", "uptime_s", "source_ok", "date_valid", "mqtt_connected", "free_heap", "wifi_connected"]
+}

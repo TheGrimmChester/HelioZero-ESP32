@@ -47,6 +47,7 @@ SAFE_GET_PATHS = [
     "/api/v1/wifi",
     "/api/v1/wifi/scan",
     "/api/v1/system/eeprom",
+    "/api/v1/system/backup",
     "/api/v1/system/arduino-ota",
     "/api/v1/time",
 ]

@@ -345,6 +345,10 @@ export const api = {
     send<ApiOk>("POST", "/api/v1/system/factory-reset", {}, opts),
   saveNow: (opts?: FetchOpts) =>
     send<ApiOk>("POST", "/api/v1/system/save-now", {}, opts),
+  getSystemBackup: (opts?: FetchOpts) =>
+    get<import("../utils/backupFormat").HelioZeroBackup>("/api/v1/system/backup", opts),
+  putSystemBackup: (body: import("../utils/backupFormat").HelioZeroBackup, opts?: FetchOpts) =>
+    send<ApiOk>("PUT", "/api/v1/system/backup", body, opts),
   getEeprom: (opts?: FetchOpts) => get<Record<string, unknown>>("/api/v1/system/eeprom", opts),
   getArduinoOta: (opts?: FetchOpts) => get<ArduinoOtaInfo>("/api/v1/system/arduino-ota", opts),
   putArduinoOtaPassword: (password: string, opts?: FetchOpts) =>

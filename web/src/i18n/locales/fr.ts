@@ -538,7 +538,7 @@ export const fr = {
     intro:
       "Exporter ou importer source de mesure, actions, MQTT, réseau, fuseau horaire et identifiants Wi‑Fi dans un fichier JSON (schéma v2).",
     security:
-      "Le fichier contient les mots de passe Wi‑Fi et MQTT et d'autres secrets. Conservez-le en lieu sûr.",
+      "Le fichier contient les mots de passe Wi‑Fi et MQTT, le mot de passe API HTTP, les jetons d'accès permanents et d'autres secrets. Conservez-le en lieu sûr.",
     sectionSecurity: "Sécurité",
     sectionExport: "Export",
     sectionImport: "Import",
@@ -571,6 +571,8 @@ export const fr = {
       badTime: "Section heure invalide",
       missingWifi: "Section Wi‑Fi manquante",
       badWifi: "Section Wi‑Fi invalide (SSID requis)",
+      badApi: "Section secrets API invalide",
+      badApiTokens: "Jetons d'accès permanents invalides dans la sauvegarde",
     },
   },
 

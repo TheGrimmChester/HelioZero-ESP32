@@ -26,7 +26,7 @@ TEST(StorageEepromExtension, RamRoundTripSkipsMainsHook) {
   in.apiAccessTokenCount = 1;
   in.apiAccessTokens[0].id = 7;
   in.apiAccessTokens[0].label = "test";
-  in.apiAccessTokens[0].hash_hex =
+  in.apiAccessTokens[0].token_hex =
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
   const int endWrite = storage_eeprom_extension_write(base, ram, in);
@@ -46,7 +46,7 @@ TEST(StorageEepromExtension, RamRoundTripSkipsMainsHook) {
   EXPECT_EQ(out.apiAccessTokenCount, in.apiAccessTokenCount);
   EXPECT_EQ(out.apiAccessTokens[0].id, in.apiAccessTokens[0].id);
   EXPECT_EQ(out.apiAccessTokens[0].label, in.apiAccessTokens[0].label);
-  EXPECT_EQ(out.apiAccessTokens[0].hash_hex, in.apiAccessTokens[0].hash_hex);
+  EXPECT_EQ(out.apiAccessTokens[0].token_hex, in.apiAccessTokens[0].token_hex);
 }
 
 TEST(StorageEepromExtension, DefaultPathWhenMissingSlash) {

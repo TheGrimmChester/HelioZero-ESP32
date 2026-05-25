@@ -7,7 +7,7 @@ import { getStrings } from "../i18n";
 import { h } from "./dom";
 import { configForBackupImport } from "../api/configPut";
 import type { HelioZeroBackup } from "./backupFormat";
-import { parseBackupJson } from "./backupFormat";
+import { BACKUP_SCHEMA_VERSION, parseBackupJson } from "./backupFormat";
 
 export async function applyBackup(
   backup: HelioZeroBackup,
@@ -18,41 +18,18 @@ export async function applyBackup(
     typeof location !== "undefined" && isAuthExemptPath(location.pathname || "/");
   const opts = { signal, retry: 0 as const, omitAuth };
 
-  try {
-    await api.putConfig(configForBackupImport(backup.config), opts);
-  } catch (e) {
-    console.error(e);
-    toast(T.saveError, "error");
-    return "config_failed";
-  }
+  const payload: HelioZeroBackup = {
+    backupSchemaVersion: BACKUP_SCHEMA_VERSION,
+    exportedAt: backup.exportedAt,
+    config: configForBackupImport(backup.config),
+    actions: backup.actions,
+    time: backup.time,
+    wifi: backup.wifi,
+    ...(backup.api !== undefined ? { api: backup.api } : {}),
+  };
 
   try {
-    await api.putActionsConfig(backup.actions, opts);
-  } catch (e) {
-    console.error(e);
-    toast(T.backup.importPartialWarn, "error", 8000);
-    await refreshDevice(signal);
-    return "actions_failed";
-  }
-
-  try {
-    await api.putTime(backup.time, opts);
-  } catch (e) {
-    console.error(e);
-    toast(T.backup.importPartialWarn, "error", 8000);
-    await refreshDevice(signal);
-    return "actions_failed";
-  }
-
-  try {
-    await api.putWifi(
-      {
-        ssid: backup.wifi.ssid,
-        password: backup.wifi.password,
-        persist: true,
-      },
-      opts,
-    );
+    await api.putSystemBackup(payload, opts);
   } catch (e) {
     const networkLost =
       e instanceof TypeError ||
@@ -62,9 +39,8 @@ export async function applyBackup(
       return "ok";
     }
     console.error(e);
-    toast(T.backup.importPartialWarn, "error", 8000);
-    await refreshDevice(signal);
-    return "actions_failed";
+    toast(T.saveError, "error");
+    return "config_failed";
   }
 
   toast(T.backup.importSuccess, "success");

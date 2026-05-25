@@ -295,6 +295,23 @@ describe("backup export/import parity", () => {
     expect(out.pmqtt_bindings).toEqual([]);
   });
 
+  it("parseBackupJson rejects Pmqtt with non-array pmqtt_bindings", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload({
+        ...sampleConfig(),
+        source: "Pmqtt",
+        pmqtt_bindings: [],
+      } as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    (doc.config as { pmqtt_bindings?: unknown }).pmqtt_bindings = "bad";
+    const r = parseBackupJson(JSON.stringify(doc));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badPmqttBindings");
+  });
+
   it("parseBackupJson rejects Pmqtt backup without pmqtt_bindings", () => {
     const doc = buildBackup(
       ensureRouterConfigPutPayload({
@@ -310,6 +327,150 @@ describe("backup export/import parity", () => {
     const r = parseBackupJson(JSON.stringify(doc));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errorKey).toBe("missingPmqttBindings");
+  });
+});
+
+describe("backup api block", () => {
+  it("parseBackupJson accepts optional api with access tokens", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "pw" },
+    );
+    const withApi = {
+      ...doc,
+      api: {
+        http_api_password: "secret",
+        access_tokens: [{ id: 2, label: "HA", token: "b".repeat(64) }],
+      },
+    };
+    const r = parseBackupJson(JSON.stringify(withApi));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.backup.api?.http_api_password).toBe("secret");
+      expect(r.backup.api?.access_tokens?.[0]?.token).toHaveLength(64);
+    }
+  });
+
+  it("parseBackupJson rejects bad api section shape", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const r = parseBackupJson(JSON.stringify({ ...doc, api: "nope" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badApi");
+  });
+
+  it("parseBackupJson rejects invalid http_api_password type", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const r = parseBackupJson(JSON.stringify({ ...doc, api: { http_api_password: 42 } }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badApi");
+  });
+
+  it("parseBackupJson rejects more than four access_tokens", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const tokens = Array.from({ length: 5 }, (_, i) => ({
+      id: i + 1,
+      label: `t${i}`,
+      token: "a".repeat(64),
+    }));
+    const r = parseBackupJson(JSON.stringify({ ...doc, api: { access_tokens: tokens } }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badApiTokens");
+  });
+
+  it("parseBackupJson rejects non-object token entries", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const r = parseBackupJson(
+      JSON.stringify({ ...doc, api: { access_tokens: ["bad"] } }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badApiTokens");
+  });
+
+  it("parseBackupJson rejects non-array access_tokens", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const r = parseBackupJson(
+      JSON.stringify({ ...doc, api: { access_tokens: {} } }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badApiTokens");
+  });
+
+  it("parseBackupJson rejects token entry missing id", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const r = parseBackupJson(
+      JSON.stringify({
+        ...doc,
+        api: {
+          access_tokens: [
+            { label: "x", token: "b".repeat(64) },
+          ],
+        },
+      }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badApiTokens");
+  });
+
+  it("parseBackupJson omits empty api block", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const r = parseBackupJson(
+      JSON.stringify({ ...doc, api: { http_api_password: "", access_tokens: [] } }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.backup.api).toBeUndefined();
+  });
+
+  it("parseBackupJson rejects invalid token hex", () => {
+    const doc = buildBackup(
+      ensureRouterConfigPutPayload(sampleConfig() as RouterConfig),
+      sampleActions(),
+      { tz: "UTC", ntp1: "a", ntp2: "b" },
+      { ssid: "net", password: "" },
+    );
+    const bad = {
+      ...doc,
+      api: { access_tokens: [{ id: 1, label: "x", token: "not-hex" }] },
+    };
+    const r = parseBackupJson(JSON.stringify(bad));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errorKey).toBe("badApiTokens");
   });
 });
 

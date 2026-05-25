@@ -198,6 +198,8 @@ void handle_get_time();
 void handle_get_system_arduino_ota();
 void handle_get_public();
 void handle_put_system_http_auth();
+void handle_get_system_backup();
+void handle_put_system_backup();
 void handle_post_auth_login();
 void handle_post_auth_logout();
 void handle_get_auth_tokens();

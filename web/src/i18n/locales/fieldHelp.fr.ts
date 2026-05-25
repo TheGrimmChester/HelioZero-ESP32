@@ -98,7 +98,7 @@ export const fieldHelpFr = {
     http_cors_enabled:
       "Autorise GET /api/v1 cross-origin et preflight OPTIONS. Labo uniquement ; pas sur réseau exposé Internet.",
     api_access_token:
-      "Jeton Bearer durable pour automatisations (curl, Home Assistant). Affiché une seule fois à la création ; seul un hash est stocké sur l’appareil.",
+      "Jeton Bearer durable pour automatisations (curl, Home Assistant). Affiché une seule fois à la création ; le secret est stocké sur l’appareil et inclus dans l’export Réglages → Sauvegarde.",
   },
 
   actions: {

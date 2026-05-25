@@ -46,6 +46,7 @@ const EXPECTED_PATHS = [
   "/api/v1/system",
   "/api/v1/system/arduino-ota",
   "/api/v1/system/audit",
+  "/api/v1/system/backup",
   "/api/v1/system/eeprom",
   "/api/v1/system/factory-reset",
   "/api/v1/system/http-auth",

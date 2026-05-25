@@ -535,7 +535,7 @@ export const en = {
     intro:
       "Export or import metering source, actions, MQTT, network, time zone, and Wi‑Fi credentials as a single JSON file (schema v2).",
     security:
-      "The backup file contains Wi‑Fi and MQTT passwords and other secrets. Store it securely and do not share it.",
+      "The backup file contains Wi‑Fi and MQTT passwords, the HTTP API password, permanent access tokens, and other secrets. Store it securely and do not share it.",
     sectionSecurity: "Security",
     sectionExport: "Export",
     sectionImport: "Import",
@@ -568,6 +568,8 @@ export const en = {
       badTime: "Invalid time section",
       missingWifi: "Missing Wi‑Fi section",
       badWifi: "Invalid Wi‑Fi section (SSID required)",
+      badApi: "Invalid API secrets section",
+      badApiTokens: "Invalid permanent access tokens in backup",
     },
   },
 

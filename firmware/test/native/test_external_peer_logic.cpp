@@ -143,3 +143,23 @@ TEST(ExternalPeerLogic, RejectsMissingNumericHouseFields) {
   EXPECT_FALSE(external_peer_logic_parse_measurements_json(R"({"house":{}})", rd));
   EXPECT_FALSE(external_peer_logic_parse_measurements_json(R"({"house":{"active_import_w":-}})", rd));
 }
+
+TEST(ExternalPeerLogic, RejectsWhitespaceOnlyEnergyFloat) {
+  ExternalPeerReading rd;
+  const std::string json = "{\"house\":{\"active_import_w\":1,\"energy_day_import_wh\":   ";
+  ASSERT_TRUE(external_peer_logic_parse_measurements_json(json, rd));
+  EXPECT_EQ(rd.house_day_energy_import_wh, 0);
+}
+
+TEST(ExternalPeerLogic, RejectsNonNumericEnergyFloat) {
+  ExternalPeerReading rd;
+  ASSERT_TRUE(external_peer_logic_parse_measurements_json(
+      R"({"house":{"active_import_w":1,"energy_total_export_wh":bad}})", rd));
+  EXPECT_EQ(rd.house_energy_export_wh, 0);
+}
+
+TEST(ExternalPeerLogic, RejectsImportValueOnlyWhitespace) {
+  ExternalPeerReading rd;
+  EXPECT_FALSE(external_peer_logic_parse_measurements_json(
+      R"({"house":{"active_import_w":   }})", rd));
+}

@@ -1,4 +1,4 @@
-"""HIL: schema v2 backup export/import via /api/v1/system/backup."""
+"""HIL: backup export/import via /api/v1/system/backup."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def backup_doc(hil_session, hil_base_url):
     doc = r.json()
     for key in BACKUP_REQUIRED_TOP:
         assert key in doc, f"missing {key}"
-    assert doc["backupSchemaVersion"] == 2
+    assert doc["backupSchemaVersion"] == 1
     assert isinstance(doc["config"], dict)
     assert isinstance(doc["actions"], dict)
     assert "actions" in doc["actions"]
@@ -73,5 +73,5 @@ def test_system_backup_roundtrip(hil_session, hil_base_url, backup_doc):
     r2 = get_with_retry(hil_session, f"{hil_base_url}/api/v1/system/backup", timeout=30)
     assert r2.status_code == 200
     doc2 = r2.json()
-    assert doc2["backupSchemaVersion"] == 2
+    assert doc2["backupSchemaVersion"] == 1
     assert doc2["wifi"]["ssid"] == backup_doc["wifi"]["ssid"]

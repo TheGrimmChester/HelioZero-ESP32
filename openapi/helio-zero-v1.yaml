@@ -1063,7 +1063,7 @@ paths:
     get:
       tags: [System]
       operationId: getSystemBackup
-      summary: Export device backup (schema v2)
+      summary: Export device backup
       description: |
         Full user backup JSON assembled on the device (config, actions, time, Wi‑Fi, and when
         HTTP API auth is enabled the API password and permanent access token secrets from EEPROM).
@@ -1074,13 +1074,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HelioZeroBackupV2"
+                $ref: "#/components/schemas/HelioZeroBackup"
         "401":
           $ref: "#/components/responses/Unauthorized"
     put:
       tags: [System]
       operationId: putSystemBackup
-      summary: Restore device backup (schema v2)
+      summary: Restore device backup
       description: |
         Applies a backup document from export. Replaces config, actions, time, Wi‑Fi, HTTP API
         password, and permanent access tokens, then persists to EEPROM. Open on soft-AP during
@@ -1090,7 +1090,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/HelioZeroBackupV2"
+              $ref: "#/components/schemas/HelioZeroBackup"
       responses:
         "200":
           description: Restored and persisted
@@ -2538,13 +2538,13 @@ components:
           maxItems: 4
           items:
             $ref: "#/components/schemas/HelioZeroBackupApiAccessToken"
-    HelioZeroBackupV2:
+    HelioZeroBackup:
       type: object
       required: [backupSchemaVersion, exportedAt, config, actions, time, wifi]
       properties:
         backupSchemaVersion:
           type: integer
-          enum: [2]
+          enum: [1]
         exportedAt:
           type: string
         config:

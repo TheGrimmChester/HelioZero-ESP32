@@ -67,7 +67,7 @@ describe("backupApply", () => {
     expect(apiMock.putSystemBackup).toHaveBeenCalled();
   });
 
-  it("applyBackup sends full schema v2 payload to PUT /system/backup", async () => {
+  it("applyBackup sends full backup payload to PUT /system/backup", async () => {
     const bindings = [
       {
         metric: "house_p",
@@ -177,7 +177,7 @@ describe("backupApply", () => {
   });
 
   it("confirmRestoreBackupFromFile rejects parse errors", async () => {
-    const file = new File(['{"backupSchemaVersion":1}'], "b.json");
+    const file = new File(['{"backupSchemaVersion":99}'], "b.json");
     await confirmRestoreBackupFromFile(file);
     expect(apiMock.putSystemBackup).not.toHaveBeenCalled();
   });

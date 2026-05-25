@@ -26,7 +26,7 @@ const FIXTURE = {
 
 function backupSnippet(): string {
   const raw = readFileSync(
-    join(firmwareRoot, "web/test/fixtures/helio-zero-backup-v2.json"),
+    join(firmwareRoot, "web/test/fixtures/helio-zero-backup.json"),
     "utf8",
   );
   const full = JSON.parse(raw) as {
@@ -304,8 +304,8 @@ function settingsExtras(lang: DocsLang): Record<string, readonly string[]> {
     factory_reset: [
       h,
       lang === "fr"
-        ? "1) Exporter sauvegarde v2  2) Confirmer reset  3) Reconfigurer Wi‑Fi/AP."
-        : "1) Export v2 backup  2) Confirm reset  3) Reconfigure via Wi‑Fi/AP.",
+        ? "1) Exporter une sauvegarde  2) Confirmer reset  3) Reconfigurer Wi‑Fi/AP."
+        : "1) Export a backup  2) Confirm reset  3) Reconfigure via Wi‑Fi/AP.",
     ],
   };
 }
@@ -514,12 +514,12 @@ function backupExtras(lang: DocsLang): Record<string, readonly string[]> {
         ? "Fichier = credentials Wi‑Fi/MQTT ; stocker hors cloud non chiffré."
         : "File contains Wi‑Fi/MQTT credentials; do not store unencrypted in public cloud.",
     ],
-    sectionExport: [...exampleJson(lang, "backup v2 (extrait)", snippet), h, linkToGuide(lang, "user-guide/")],
+    sectionExport: [...exampleJson(lang, "backup (extrait)", snippet), h, linkToGuide(lang, "user-guide/")],
     sectionImport: [
       h,
       lang === "fr"
-        ? "Importer le JSON v2 complet ; rejet si `backupSchemaVersion` ≠ 2."
-        : "Import full v2 JSON; rejected if `backupSchemaVersion` ≠ 2.",
+        ? "Importer le JSON complet ; rejet si `backupSchemaVersion` ≠ 1."
+        : "Import full backup JSON; rejected if `backupSchemaVersion` ≠ 1.",
       ...exampleJson(lang, null, snippet),
     ],
   };

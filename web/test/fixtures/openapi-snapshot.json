@@ -1685,7 +1685,7 @@
           "System"
         ],
         "operationId": "getSystemBackup",
-        "summary": "Export device backup (schema v2)",
+        "summary": "Export device backup",
         "description": "Full user backup JSON assembled on the device (config, actions, time, Wi\u2011Fi, and when\nHTTP API auth is enabled the API password and permanent access token secrets from EEPROM).\nSame shape as the Settings \u2192 Backup download file.\n",
         "responses": {
           "200": {
@@ -1693,7 +1693,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HelioZeroBackupV2"
+                  "$ref": "#/components/schemas/HelioZeroBackup"
                 }
               }
             }
@@ -1708,14 +1708,14 @@
           "System"
         ],
         "operationId": "putSystemBackup",
-        "summary": "Restore device backup (schema v2)",
+        "summary": "Restore device backup",
         "description": "Applies a backup document from export. Replaces config, actions, time, Wi\u2011Fi, HTTP API\npassword, and permanent access tokens, then persists to EEPROM. Open on soft-AP during\nsetup when HTTP auth is enabled (same as other restore routes).\n",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HelioZeroBackupV2"
+                "$ref": "#/components/schemas/HelioZeroBackup"
               }
             }
           }
@@ -3934,7 +3934,7 @@
           }
         }
       },
-      "HelioZeroBackupV2": {
+      "HelioZeroBackup": {
         "type": "object",
         "required": [
           "backupSchemaVersion",
@@ -3948,7 +3948,7 @@
           "backupSchemaVersion": {
             "type": "integer",
             "enum": [
-              2
+              1
             ]
           },
           "exportedAt": {

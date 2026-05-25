@@ -181,9 +181,9 @@ export const fieldHelpEn = {
     sectionSecurity:
       "Backup files contain Wi‑Fi credentials, MQTT passwords, and action URLs. Store encrypted or offline; treat like a password vault export.",
     sectionExport:
-      "Downloads full router configuration as JSON schema v2. Export before firmware upgrades that bump EEPROM layout.",
+      "Downloads full router configuration as JSON. Export before firmware upgrades that bump EEPROM layout.",
     sectionImport:
-      "Restores configuration from a v2 backup. Device may reboot; reconnect on the LAN afterward. Partial or incomplete backups are rejected.",
+      "Restores configuration from a backup file. Device may reboot; reconnect on the LAN afterward.",
   },
 } as const;
 

@@ -525,7 +525,7 @@ export const en = {
     actionOk: "Done",
     actionFailed: "Action failed",
     sectionBackup: "Backup & restore",
-    backupHint: "Export or import full router settings (schema v2).",
+    backupHint: "Export or import full router settings.",
     openBackup: "Open backup page",
   },
 
@@ -533,7 +533,7 @@ export const en = {
     title: "Backup & restore",
     backToSettings: "Back to settings",
     intro:
-      "Export or import metering source, actions, MQTT, network, time zone, and Wi‑Fi credentials as a single JSON file (schema v2).",
+      "Export or import metering source, actions, MQTT, network, time zone, and Wi‑Fi credentials as a single JSON file.",
     security:
       "The backup file contains Wi‑Fi and MQTT passwords, the HTTP API password, permanent access tokens, and other secrets. Store it securely and do not share it.",
     sectionSecurity: "Security",
@@ -552,7 +552,7 @@ export const en = {
     parseErrors: {
       invalidJson: "Invalid JSON file",
       notObject: "Backup must be a JSON object",
-      badSchemaVersion: "Unsupported backup version (expected schema v2)",
+      badSchemaVersion: "Unsupported backup file version",
       unknownTopLevelKey: "Unknown field in backup file",
       missingExportedAt: "Missing export date",
       missingConfig: "Missing config section",
@@ -611,7 +611,7 @@ export const en = {
     ssidRequired: "Enter a network name (SSID).",
     sectionRestoreBackup: "Restore from backup",
     restoreBackupIntro:
-      "Import a schema v2 backup to restore metering, actions, MQTT, time zone, and Wi‑Fi. The router reboots and joins your network.",
+      "Import a backup file to restore metering, actions, MQTT, time zone, and Wi‑Fi. The router reboots and joins your network.",
     restoreBackupBtn: "Choose backup file…",
   },
 

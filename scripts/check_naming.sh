@@ -29,7 +29,7 @@ if rg -n --glob 'helio_*.{h,cpp}' -e '\bRMS\b|\bRMSext\b|rms_ext_|rms_setup|rms_
 fi
 
 # Helio-owned wire JSON must not reintroduce camelCase keys (vendor parsers excluded).
-# Settings backup file (schema v2) uses camelCase keys shared with the web SPA — not REST snake_case.
+# Settings backup file uses camelCase keys shared with the web SPA — not REST snake_case.
 if rg -n \
   --glob 'firmware/api/api_v1_*.cpp' \
   --glob '!firmware/api/api_v1_system_backup.cpp' \

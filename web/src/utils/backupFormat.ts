@@ -16,7 +16,7 @@ export function normalizeActionsForBackup(
 }
 
 /** Client-side backup file format (not the firmware REST envelope). */
-export const BACKUP_SCHEMA_VERSION = 2 as const;
+export const BACKUP_SCHEMA_VERSION = 1 as const;
 /** Matches firmware kMaxRoutingActions / actions UI cap. */
 export const BACKUP_MAX_ACTIONS = 20;
 

@@ -1,5 +1,5 @@
 /*
- * api_v1_system_backup.cpp — schema v2 device backup export/import.
+ * api_v1_system_backup.cpp — device backup export/import.
  */
 #include "api_v1_common.h"
 #include "api_access_token.h"
@@ -9,7 +9,7 @@
 
 namespace {
 
-constexpr int kBackupSchemaVersion = 2;
+constexpr int kBackupSchemaVersion = 1;
 
 static String backup_exported_at_iso() {
   if (time_sync_valid && sync_clock_str.length() > 0) {

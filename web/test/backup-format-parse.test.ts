@@ -68,7 +68,7 @@ describe("parseBackupJson errors", () => {
   it("rejects schema, keys, and nested sections", () => {
     const base = minimalBackupDoc();
     const cases: Array<{ doc: Record<string, unknown>; key: string }> = [
-      { doc: { ...base, backupSchemaVersion: 1 }, key: "badSchemaVersion" },
+      { doc: { ...base, backupSchemaVersion: 2 }, key: "badSchemaVersion" },
       { doc: { ...base, extra: 1 }, key: "unknownTopLevelKey" },
       { doc: { ...base, config: null }, key: "missingConfig" },
       { doc: { ...base, actions: null }, key: "missingActions" },

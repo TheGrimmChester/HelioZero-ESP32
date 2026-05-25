@@ -20,7 +20,7 @@ import {
 } from "../src/utils/backupFormat";
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
-const v2FixturePath = join(fixtureDir, "helio-zero-backup-v2.json");
+const backupFixturePath = join(fixtureDir, "helio-zero-backup.json");
 
 function sampleActions(): ActionsConfigEnvelope {
   return {
@@ -137,9 +137,9 @@ describe("backup format", () => {
     }
   });
 
-  it("loads helio-zero-backup-v2.json fixture", () => {
+  it("loads helio-zero-backup.json fixture", () => {
     if (!process.env.VITEST_UPDATE_FIXTURES) {
-      const raw = readFileSync(v2FixturePath, "utf8");
+      const raw = readFileSync(backupFixturePath, "utf8");
       const r = parseBackupJson(raw);
       expect(r.ok).toBe(true);
       if (r.ok) {
@@ -153,16 +153,18 @@ describe("backup format", () => {
       { tz: "CET-1CEST", ntp1: "pool.ntp.org", ntp2: "time.google.com" },
       { ssid: "home-wifi", password: "wpa-secret" },
     );
-    writeFileSync(v2FixturePath, JSON.stringify(doc, null, 2) + "\n");
+    writeFileSync(backupFixturePath, JSON.stringify(doc, null, 2) + "\n");
     expect(parseBackupJson(JSON.stringify(doc)).ok).toBe(true);
   });
 
-  it("rejects schema v1 backups", () => {
+  it("rejects unsupported backupSchemaVersion", () => {
     const raw = JSON.stringify({
-      backupSchemaVersion: 1,
+      backupSchemaVersion: 2,
       exportedAt: "2026-01-01T00:00:00.000Z",
       config: {},
       actions: { schema_version: 4, nb_actions: 0, actions: [] },
+      time: { tz: "UTC", ntp1: "a", ntp2: "b" },
+      wifi: { ssid: "net", password: "" },
     });
     const r = parseBackupJson(raw);
     expect(r.ok).toBe(false);

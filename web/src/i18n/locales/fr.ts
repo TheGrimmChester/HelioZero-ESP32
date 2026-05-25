@@ -528,7 +528,7 @@ export const fr = {
     actionOk: "Terminé",
     actionFailed: "Échec de l'action",
     sectionBackup: "Sauvegarde & restauration",
-    backupHint: "Exporter ou importer la configuration complète (schéma v2).",
+    backupHint: "Exporter ou importer la configuration complète.",
     openBackup: "Ouvrir la page de sauvegarde",
   },
 
@@ -536,7 +536,7 @@ export const fr = {
     title: "Sauvegarde & restauration",
     backToSettings: "Retour aux réglages",
     intro:
-      "Exporter ou importer source de mesure, actions, MQTT, réseau, fuseau horaire et identifiants Wi‑Fi dans un fichier JSON (schéma v2).",
+      "Exporter ou importer source de mesure, actions, MQTT, réseau, fuseau horaire et identifiants Wi‑Fi dans un fichier JSON.",
     security:
       "Le fichier contient les mots de passe Wi‑Fi et MQTT, le mot de passe API HTTP, les jetons d'accès permanents et d'autres secrets. Conservez-le en lieu sûr.",
     sectionSecurity: "Sécurité",
@@ -555,7 +555,7 @@ export const fr = {
     parseErrors: {
       invalidJson: "Fichier JSON invalide",
       notObject: "La sauvegarde doit être un objet JSON",
-      badSchemaVersion: "Version non prise en charge (schéma v2 attendu)",
+      badSchemaVersion: "Version de sauvegarde non prise en charge",
       unknownTopLevelKey: "Champ inconnu dans le fichier",
       missingExportedAt: "Date d'export manquante",
       missingConfig: "Section config manquante",
@@ -615,7 +615,7 @@ export const fr = {
     ssidRequired: "Saisissez un nom de réseau (SSID).",
     sectionRestoreBackup: "Restaurer depuis une sauvegarde",
     restoreBackupIntro:
-      "Importez une sauvegarde schéma v2 (mesure, actions, MQTT, fuseau, Wi‑Fi). Le routeur redémarre et rejoint votre réseau.",
+      "Importez une sauvegarde (mesure, actions, MQTT, fuseau, Wi‑Fi). Le routeur redémarre et rejoint votre réseau.",
     restoreBackupBtn: "Choisir un fichier…",
   },
 

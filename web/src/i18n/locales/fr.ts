@@ -108,6 +108,8 @@ export const fr = {
     tokenCreatedTitle: "Jeton créé",
     tokenCreatedBody: "Copiez ce jeton pour « {label} ». Il ne sera plus affiché.",
     tokenCopy: "Copier le jeton",
+    tokenCopyManualHint:
+      "Si la copie échoue, le jeton reste sélectionné — utilisez Ctrl+C (Cmd+C sur Mac).",
     sectionCors: "CORS navigateur (labo)",
     httpCorsEnabled: "Autoriser CORS navigateur sur GET /api/v1 (labo)",
     httpCorsHint:

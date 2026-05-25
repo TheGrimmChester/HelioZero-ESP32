@@ -15,6 +15,35 @@ export interface DialogOptions {
   closeOnBackdrop?: boolean;
 }
 
+function isPromiseLike(value: unknown): value is Promise<void> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    typeof (value as Promise<void>).then === "function"
+  );
+}
+
+/** Run dialog action onClick; only await real promises (preserves user activation for sync copy). */
+function runDialogAction(
+  onClick: () => void | Promise<void>,
+  closeOnClick: boolean | undefined,
+  close: () => void,
+): void {
+  try {
+    const result = onClick();
+    const maybeClose = () => {
+      if (closeOnClick !== false) close();
+    };
+    if (isPromiseLike(result)) {
+      result.then(maybeClose).catch((e) => console.error(e));
+    } else {
+      maybeClose();
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 function focusableIn(root: HTMLElement): HTMLElement[] {
   return Array.from(
     root.querySelectorAll<HTMLElement>(
@@ -59,14 +88,7 @@ export function openDialog(opts: DialogOptions): { close: () => void } {
         {
           type: "button",
           class: `btn${a.kind && a.kind !== "default" ? " btn--" + a.kind : ""}`,
-          onClick: async () => {
-            try {
-              await a.onClick();
-              if (a.closeOnClick !== false) close();
-            } catch (e) {
-              console.error(e);
-            }
-          },
+          onClick: () => runDialogAction(a.onClick, a.closeOnClick, close),
         },
         a.label,
       );

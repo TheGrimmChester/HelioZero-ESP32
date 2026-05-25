@@ -87,6 +87,18 @@ export const en = {
       "For Home Assistant, scripts, or other automation. Each token is shown once; store it safely. Max 4 tokens.",
     tokensEmpty: "No access tokens yet.",
     tokensNeedAuth: "Enable HTTP API password above to create tokens.",
+    tokensNeedAuthDetail:
+      "Permanent tokens are only available after LAN API protection is enabled. Set a password in the HTTP API access section above, sign in, then create a token.",
+    tokensNeedSignIn: "Sign in with the API password above before creating a token.",
+    tokenCreateDisabledHint: "Set an HTTP API password and sign in first.",
+    apiErrors: {
+      httpAuthPasswordNotSet:
+        "No HTTP API password on the device. Set one under HTTP API access above, sign in, then try again.",
+      maxTokensReached: "Maximum of 4 tokens reached. Revoke an existing token first.",
+      invalidLabel: "Invalid label (printable ASCII only, max 24 characters).",
+      noFreeTokenId: "Could not allocate a token id.",
+      failedToHashToken: "Failed to create token on the device.",
+    },
     tokenLabel: "Label (optional)",
     tokenLabelPlaceholder: "e.g. Home Assistant",
     tokenCreate: "Create token",

@@ -10,7 +10,11 @@ import { h } from "../../utils/dom";
 export async function buildHttpAuthSection(
   T: ReturnType<typeof getStrings>,
   signal: AbortSignal,
-  opts?: { helpScope?: "settings" | "api" },
+  opts?: {
+    helpScope?: "settings" | "api";
+    /** Called after HTTP API password is set or cleared (e.g. refresh PAT list). */
+    onHttpAuthChanged?: () => void | Promise<void>;
+  },
 ): Promise<HTMLElement> {
   const helpScope = opts?.helpScope ?? "api";
   const A = T.apiPage;
@@ -89,6 +93,7 @@ export async function buildHttpAuthSection(
               }
               passInput.value = "";
               await refreshStatus();
+              await opts?.onHttpAuthChanged?.();
               toast(T.saved, "success");
               if (res.enabled) {
                 clearSession();
@@ -112,6 +117,7 @@ export async function buildHttpAuthSection(
               clearSession();
               passInput.value = "";
               await refreshStatus();
+              await opts?.onHttpAuthChanged?.();
               toast(T.saved, "success");
             } catch {
               toast(T.saveError, "error");

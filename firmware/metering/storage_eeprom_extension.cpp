@@ -249,12 +249,12 @@ int storage_eeprom_extension_read(int address, IEepromBackend &eeprom, EepromExt
             address += static_cast<int>(fields.apiAccessTokens[i].label.length() + 1);
           }
           if (address < cap) {
-            fields.apiAccessTokens[i].hash_hex = eeprom.readString(address);
-            if (fields.apiAccessTokens[i].hash_hex.length() !=
-                static_cast<size_t>(kEepromApiAccessTokenHashHexLen)) {
-              fields.apiAccessTokens[i].hash_hex.clear();
+            fields.apiAccessTokens[i].token_hex = eeprom.readString(address);
+            if (fields.apiAccessTokens[i].token_hex.length() !=
+                static_cast<size_t>(kEepromApiAccessTokenSecretHexLen)) {
+              fields.apiAccessTokens[i].token_hex.clear();
             }
-            address += static_cast<int>(fields.apiAccessTokens[i].hash_hex.length() + 1);
+            address += static_cast<int>(fields.apiAccessTokens[i].token_hex.length() + 1);
           }
         }
       }
@@ -449,8 +449,8 @@ int storage_eeprom_extension_write(int address, IEepromBackend &eeprom, const Ee
     eeprom.writeString(address, lbl);
     address += static_cast<int>(lbl.length() + 1);
     if (address >= cap) return address;
-    std::string hx = fields.apiAccessTokens[i].hash_hex;
-    if (hx.length() != static_cast<size_t>(kEepromApiAccessTokenHashHexLen)) continue;
+    std::string hx = fields.apiAccessTokens[i].token_hex;
+    if (hx.length() != static_cast<size_t>(kEepromApiAccessTokenSecretHexLen)) continue;
     eeprom.writeString(address, hx);
     address += static_cast<int>(hx.length() + 1);
   }

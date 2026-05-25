@@ -1,5 +1,5 @@
 {
-  "backupSchemaVersion": 2,
+  "backupSchemaVersion": 1,
   "exportedAt": "2026-05-19T13:57:49.753Z",
   "config": {
     "dhcp_on": true,

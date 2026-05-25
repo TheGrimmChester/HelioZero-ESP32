@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 import requests
 
+from hil_auth_session import configure_hil_session
 from hil_env import hil_env
 
 OPENAPI_PATHS = [
@@ -31,18 +30,9 @@ def hil_base_url() -> str:
 
 
 @pytest.fixture(scope="session")
-def hil_auth():
-    password = hil_env("HELIO_ZERO_HIL_PASSWORD", default="")
-    if not password:
-        return None
-    user = hil_env("HELIO_ZERO_HIL_USER", default="admin")
-    return (user, password)
-
-
-@pytest.fixture(scope="session")
-def hil_session(hil_base_url: str, hil_auth):
+def hil_session(hil_base_url: str):
     s = requests.Session()
-    s.auth = hil_auth
+    configure_hil_session(s, hil_base_url)
     r = s.get(f"{hil_base_url}/api/v1/health", timeout=10)
     r.raise_for_status()
     return s

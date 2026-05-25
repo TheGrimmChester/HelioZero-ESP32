@@ -8,6 +8,7 @@ import time
 
 import requests
 
+from hil_auth_session import configure_hil_session
 from hil_env import hil_env
 
 TIMEOUT_S = int(hil_env("HELIO_ZERO_HIL_WAIT_S", default="120"))
@@ -19,16 +20,13 @@ def main() -> int:
     if not base:
         print("ERROR: HELIO_ZERO_HIL_URL is not set", file=sys.stderr)
         return 2
-    auth = None
-    user = hil_env("HELIO_ZERO_HIL_USER", default="admin")
-    password = hil_env("HELIO_ZERO_HIL_PASSWORD", default="")
-    if password:
-        auth = (user, password)
+    session = requests.Session()
+    configure_hil_session(session, base)
     deadline = time.time() + TIMEOUT_S
     url = f"{base}/api/v1/health"
     while time.time() < deadline:
         try:
-            r = requests.get(url, auth=auth, timeout=5)
+            r = session.get(url, timeout=5)
             if r.status_code == 200:
                 print(f"OK: device ready at {base}")
                 return 0

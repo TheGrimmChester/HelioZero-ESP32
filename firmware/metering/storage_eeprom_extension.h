@@ -135,11 +135,11 @@ struct EepromExtensionFields {
   std::string actionsJson;
   bool actionsJsonPresent = false;
 
-  /** Persisted API access tokens (magic 0xE20B, tail append). */
+  /** Persisted API access tokens (magic 0xE20D, tail append). */
   struct ApiAccessTokenStored {
     uint8_t id = 0;
     std::string label;
-    std::string hash_hex;
+    std::string token_hex;
   };
   static constexpr int kApiAccessTokenStoredMax = 4;
   ApiAccessTokenStored apiAccessTokens[kApiAccessTokenStoredMax];

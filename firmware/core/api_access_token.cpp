@@ -48,10 +48,8 @@ bool api_access_tokens_find_by_id(uint8_t id, int &indexOut) {
 
 bool api_access_tokens_verify_bearer(const std::string &token) {
   if (!api_logic_is_valid_session_token_format(token)) return false;
-  const std::string hash = api_token_sha256_hex(token);
-  if (hash.length() != 64) return false;
   for (int i = 0; i < apiAccessTokenCount; i++) {
-    if (api_token_hex_constant_time_eq(hash, apiAccessTokens[i].hash_hex)) return true;
+    if (api_token_hex_constant_time_eq(token, apiAccessTokens[i].token_hex)) return true;
   }
   return false;
 }
@@ -101,9 +99,8 @@ bool api_access_tokens_create(const std::string &label, std::string &tokenOut, u
   }
 
   tokenOut = generate_token_hex64();
-  const std::string hash = api_token_sha256_hex(tokenOut);
-  if (hash.length() != 64) {
-    err = "failed to hash token";
+  if (!api_logic_is_valid_session_token_format(tokenOut)) {
+    err = "failed to generate token";
     return false;
   }
 
@@ -113,7 +110,7 @@ bool api_access_tokens_create(const std::string &label, std::string &tokenOut, u
   ApiAccessTokenEntry &e = apiAccessTokens[apiAccessTokenCount++];
   e.id = id;
   e.label = labelNorm;
-  e.hash_hex = hash;
+  e.token_hex = tokenOut;
   idOut = id;
   labelOut = labelNorm;
   return true;
@@ -131,5 +128,48 @@ bool api_access_tokens_revoke(uint8_t id, std::string &err) {
   }
   apiAccessTokenCount--;
   apiAccessTokens[apiAccessTokenCount] = ApiAccessTokenEntry{};
+  return true;
+}
+
+bool api_access_tokens_replace_all(const ApiAccessTokenEntry *entries, int count, std::string &err) {
+  err.clear();
+  if (count < 0 || count > kApiAccessTokenMax) {
+    err = "invalid token count";
+    return false;
+  }
+  std::vector<uint8_t> seen;
+  seen.reserve(static_cast<size_t>(count));
+  for (int i = 0; i < count; i++) {
+    const ApiAccessTokenEntry &in = entries[i];
+    if (in.id == 0) {
+      err = "invalid token id";
+      return false;
+    }
+    for (uint8_t s : seen) {
+      if (s == in.id) {
+        err = "duplicate token id";
+        return false;
+      }
+    }
+    seen.push_back(in.id);
+    if (!api_logic_is_valid_session_token_format(in.token_hex)) {
+      err = "invalid token secret";
+      return false;
+    }
+    std::string labelNorm = in.label;
+    if (!api_token_validate_label(labelNorm, err)) return false;
+    if (labelNorm.empty()) {
+      labelNorm = "Token " + std::to_string(static_cast<int>(in.id));
+    }
+  }
+  api_access_tokens_clear();
+  for (int i = 0; i < count; i++) {
+    ApiAccessTokenEntry e = entries[i];
+    if (e.label.empty()) {
+      e.label = "Token " + std::to_string(static_cast<int>(e.id));
+    }
+    apiAccessTokens[i] = e;
+  }
+  apiAccessTokenCount = count;
   return true;
 }

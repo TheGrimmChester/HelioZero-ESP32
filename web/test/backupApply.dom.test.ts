@@ -5,10 +5,7 @@ import { ensureRouterConfigPutPayload } from "../src/api/configPut";
 import type { ActionsConfigEnvelope, RouterConfig } from "../src/api/types";
 
 const apiMock = vi.hoisted(() => ({
-  putConfig: vi.fn(),
-  putActionsConfig: vi.fn(),
-  putTime: vi.fn(),
-  putWifi: vi.fn(),
+  putSystemBackup: vi.fn(),
   getDevice: vi.fn(),
 }));
 
@@ -54,10 +51,7 @@ function sampleBackup() {
 describe("backupApply DOM", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiMock.putConfig.mockResolvedValue(undefined);
-    apiMock.putActionsConfig.mockResolvedValue(undefined);
-    apiMock.putTime.mockResolvedValue(undefined);
-    apiMock.putWifi.mockResolvedValue(undefined);
+    apiMock.putSystemBackup.mockResolvedValue(undefined);
     apiMock.getDevice.mockResolvedValue({
       router_name: "R",
       firmware_version: "1",
@@ -70,7 +64,7 @@ describe("backupApply DOM", () => {
   it("confirmRestoreBackupFromFile applies valid backup via dialog", async () => {
     const file = new File([JSON.stringify(sampleBackup())], "b.json");
     await confirmRestoreBackupFromFile(file);
-    expect(apiMock.putConfig).toHaveBeenCalled();
+    expect(apiMock.putSystemBackup).toHaveBeenCalled();
   });
 
   it("confirmRestoreBackupFromFile cancel does not apply", async () => {
@@ -81,7 +75,7 @@ describe("backupApply DOM", () => {
     });
     const file = new File([JSON.stringify(sampleBackup())], "b.json");
     await confirmRestoreBackupFromFile(file);
-    expect(apiMock.putConfig).not.toHaveBeenCalled();
+    expect(apiMock.putSystemBackup).not.toHaveBeenCalled();
   });
 
   it("confirmRestoreBackupFromFile uses unknown fallback for parse errors", async () => {
@@ -92,6 +86,6 @@ describe("backupApply DOM", () => {
     });
     const file = new File(["{}"], "b.json");
     await confirmRestoreBackupFromFile(file);
-    expect(apiMock.putConfig).not.toHaveBeenCalled();
+    expect(apiMock.putSystemBackup).not.toHaveBeenCalled();
   });
 });

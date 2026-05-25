@@ -88,7 +88,7 @@ static void extension_fields_to_globals(const EepromExtensionFields &f) {
   for (int i = 0; i < n; i++) {
     loaded[i].id = f.apiAccessTokens[i].id;
     loaded[i].label = f.apiAccessTokens[i].label;
-    loaded[i].hash_hex = f.apiAccessTokens[i].hash_hex;
+    loaded[i].token_hex = f.apiAccessTokens[i].token_hex;
   }
   api_access_tokens_load(loaded, n);
 }
@@ -151,7 +151,7 @@ static EepromExtensionFields extension_fields_from_globals() {
   for (int i = 0; i < tokCount && i < EepromExtensionFields::kApiAccessTokenStoredMax; i++) {
     f.apiAccessTokens[i].id = entries[i].id;
     f.apiAccessTokens[i].label = entries[i].label;
-    f.apiAccessTokens[i].hash_hex = entries[i].hash_hex;
+    f.apiAccessTokens[i].token_hex = entries[i].token_hex;
   }
   return f;
 }

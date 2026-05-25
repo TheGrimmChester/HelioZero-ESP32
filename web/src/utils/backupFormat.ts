@@ -16,7 +16,7 @@ export function normalizeActionsForBackup(
 }
 
 /** Client-side backup file format (not the firmware REST envelope). */
-export const BACKUP_SCHEMA_VERSION = 2 as const;
+export const BACKUP_SCHEMA_VERSION = 1 as const;
 /** Matches firmware kMaxRoutingActions / actions UI cap. */
 export const BACKUP_MAX_ACTIONS = 20;
 
@@ -27,7 +27,19 @@ const BACKUP_TOP_LEVEL_KEYS = [
   "actions",
   "time",
   "wifi",
+  "api",
 ] as const;
+
+export interface HelioZeroBackupApiAccessToken {
+  id: number;
+  label: string;
+  token: string;
+}
+
+export interface HelioZeroBackupApi {
+  http_api_password?: string;
+  access_tokens?: HelioZeroBackupApiAccessToken[];
+}
 
 export interface HelioZeroBackupTime {
   tz: string;
@@ -47,6 +59,52 @@ export interface HelioZeroBackup {
   actions: ActionsConfigEnvelope;
   time: HelioZeroBackupTime;
   wifi: HelioZeroBackupWifi;
+  api?: HelioZeroBackupApi;
+}
+
+const TOKEN_HEX64 = /^[0-9a-f]{64}$/;
+
+function parseBackupApi(
+  raw: unknown,
+): { ok: true; api: HelioZeroBackupApi } | { ok: false; errorKey: string } {
+  if (!isPlainObject(raw)) {
+    return { ok: false, errorKey: "badApi" };
+  }
+  const api: HelioZeroBackupApi = {};
+  if ("http_api_password" in raw) {
+    if (typeof raw["http_api_password"] !== "string") {
+      return { ok: false, errorKey: "badApi" };
+    }
+    api.http_api_password = raw["http_api_password"];
+  }
+  if ("access_tokens" in raw) {
+    const arr = raw["access_tokens"];
+    if (!Array.isArray(arr)) {
+      return { ok: false, errorKey: "badApiTokens" };
+    }
+    if (arr.length > 4) {
+      return { ok: false, errorKey: "badApiTokens" };
+    }
+    const tokens: HelioZeroBackupApiAccessToken[] = [];
+    for (const item of arr) {
+      if (!isPlainObject(item)) {
+        return { ok: false, errorKey: "badApiTokens" };
+      }
+      if (typeof item["id"] !== "number" || typeof item["token"] !== "string") {
+        return { ok: false, errorKey: "badApiTokens" };
+      }
+      if (!TOKEN_HEX64.test(item["token"])) {
+        return { ok: false, errorKey: "badApiTokens" };
+      }
+      tokens.push({
+        id: item["id"],
+        label: typeof item["label"] === "string" ? item["label"] : "",
+        token: item["token"],
+      });
+    }
+    api.access_tokens = tokens;
+  }
+  return { ok: true, api };
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -158,6 +216,22 @@ export function parseBackupJson(
   if (!isNonEmptyString(wifiObj["ssid"]) || typeof wifiObj["password"] !== "string") {
     return { ok: false, errorKey: "badWifi" };
   }
+  let apiBlock: HelioZeroBackupApi | undefined;
+  if ("api" in parsed) {
+    const apiParsed = parseBackupApi(parsed["api"]);
+    if (!apiParsed.ok) {
+      return { ok: false, errorKey: apiParsed.errorKey };
+    }
+    const hasPassword =
+      apiParsed.api.http_api_password !== undefined &&
+      apiParsed.api.http_api_password.length > 0;
+    const hasTokens =
+      apiParsed.api.access_tokens !== undefined && apiParsed.api.access_tokens.length > 0;
+    if (hasPassword || hasTokens) {
+      apiBlock = apiParsed.api;
+    }
+  }
+
   const backup: HelioZeroBackup = {
     backupSchemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: parsed["exportedAt"],
@@ -176,6 +250,7 @@ export function parseBackupJson(
       ssid: wifiObj["ssid"],
       password: wifiObj["password"],
     },
+    ...(apiBlock !== undefined ? { api: apiBlock } : {}),
   };
   return { ok: true, backup };
 }

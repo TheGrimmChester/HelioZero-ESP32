@@ -27,8 +27,8 @@
  *   0xE209  kEepromHaSiteMagic        — vacation, caps, mqtt_json_commands
  *   0xE20A  kEepromDiagMagic          — self-test + triac calibration
  *   0xE220  kEepromActionsJsonMagic   — load_channels[] JSON (replaces previous binary action stream)
- *   0xE20B  kEepromHttpApiTokensMagic — persisted API access token hashes (tail append)
  *   0xE20C  kEepromPmqttBindingsMagic — Source Pmqtt per-metric bindings JSON
+ *   0xE20D  kEepromHttpApiTokensMagic — persisted API access token secrets (tail append; was 0xE20B hashed)
  *
  * See: /en/getting-started/ (EEPROM) and /en/developer/ § Release checklist (kEepromLayoutInit bump).
  */
@@ -56,10 +56,10 @@ constexpr uint16_t kEepromRegulationV2Magic = 0xE208u;
 constexpr uint16_t kEepromHaSiteMagic = 0xE209u;
 constexpr uint16_t kEepromDiagMagic = 0xE20Au;
 constexpr uint16_t kEepromActionsJsonMagic = 0xE220u;
-constexpr uint16_t kEepromHttpApiTokensMagic = 0xE20Bu;
 constexpr uint16_t kEepromPmqttBindingsMagic = 0xE20Cu;
+constexpr uint16_t kEepromHttpApiTokensMagic = 0xE20Du;
+constexpr int kEepromApiAccessTokenSecretHexLen = 64;
 constexpr int kEepromApiAccessTokenLabelMax = 24;
-constexpr int kEepromApiAccessTokenHashHexLen = 64;
 /** Max serialized actions JSON in extension tail (fits below kEepromSize with other blocks). */
 constexpr int kEepromActionsJsonMax = 3072;
 

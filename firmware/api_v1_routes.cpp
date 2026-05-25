@@ -55,6 +55,8 @@ void Init_ApiRoutes() {
   server.on("/api/v1/system/arduino-ota", HTTP_GET, handle_get_system_arduino_ota);
   server.on("/api/v1/system/arduino-ota", HTTP_PUT, handle_put_system_arduino_ota);
   server.on("/api/v1/system/http-auth", HTTP_PUT, handle_put_system_http_auth);
+  server.on("/api/v1/system/backup", HTTP_GET, handle_get_system_backup);
+  server.on("/api/v1/system/backup", HTTP_PUT, handle_put_system_backup);
   server.on("/api/v1/time", HTTP_GET, handle_get_time);
   server.on("/api/v1/time", HTTP_PUT, handle_put_time);
   server.on("/api/v1/firmware/ota", HTTP_POST, handle_post_firmware_ota_done, handle_firmware_ota_upload);

@@ -71,6 +71,61 @@ TEST(ApiAccessToken, CreateVerifyRevoke) {
   EXPECT_FALSE(api_access_tokens_verify_bearer(token));
 }
 
+TEST(ApiAccessToken, ReplaceAllRestore) {
+  api_access_tokens_clear();
+  ApiAccessTokenEntry in[1];
+  in[0].id = 3;
+  in[0].label = "restore";
+  in[0].token_hex = std::string(64, 'c');
+  std::string err;
+  ASSERT_TRUE(api_access_tokens_replace_all(in, 1, err));
+  EXPECT_TRUE(api_access_tokens_verify_bearer(in[0].token_hex));
+  EXPECT_FALSE(api_access_tokens_verify_bearer(std::string(64, 'd')));
+}
+
+TEST(ApiAccessToken, ReplaceAllRejectsInvalidSecret) {
+  api_access_tokens_clear();
+  ApiAccessTokenEntry in[1];
+  in[0].id = 1;
+  in[0].label = "bad";
+  in[0].token_hex = "not-hex";
+  std::string err;
+  EXPECT_FALSE(api_access_tokens_replace_all(in, 1, err));
+}
+
+TEST(ApiAccessToken, ReplaceAllRejectsDuplicateId) {
+  api_access_tokens_clear();
+  ApiAccessTokenEntry in[2];
+  in[0].id = 1;
+  in[0].label = "a";
+  in[0].token_hex = std::string(64, 'a');
+  in[1].id = 1;
+  in[1].label = "b";
+  in[1].token_hex = std::string(64, 'b');
+  std::string err;
+  EXPECT_FALSE(api_access_tokens_replace_all(in, 2, err));
+}
+
+TEST(ApiAccessToken, ReplaceAllRejectsZeroId) {
+  api_access_tokens_clear();
+  ApiAccessTokenEntry in[1];
+  in[0].id = 0;
+  in[0].token_hex = std::string(64, 'f');
+  std::string err;
+  EXPECT_FALSE(api_access_tokens_replace_all(in, 1, err));
+}
+
+TEST(ApiAccessToken, ReplaceAllAppliesDefaultLabel) {
+  api_access_tokens_clear();
+  ApiAccessTokenEntry in[1];
+  in[0].id = 2;
+  in[0].label = "";
+  in[0].token_hex = std::string(64, 'e');
+  std::string err;
+  ASSERT_TRUE(api_access_tokens_replace_all(in, 1, err));
+  EXPECT_EQ(apiAccessTokens[0].label, "Token 2");
+}
+
 TEST(ApiAccessToken, MaxFourTokens) {
   api_access_tokens_clear();
   for (int i = 0; i < 4; i++) {

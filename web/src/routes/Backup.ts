@@ -8,8 +8,8 @@ import { getStrings } from "../i18n";
 import { withBase } from "../paths";
 import {
   backupDownloadFilename,
-  buildBackup,
   downloadJsonFile,
+  type HelioZeroBackup,
 } from "../utils/backupFormat";
 import { confirmRestoreBackupFromFile } from "../utils/backupApply";
 import { buildPageHeader } from "../components/ui/pageHeader";
@@ -112,19 +112,8 @@ export async function mountBackup(ctx: RouteCtx) {
 
   async function doExport() {
     try {
-      const [cfgEnv, actEnv, timeInfo, wifiInfo] = await Promise.all([
-        api.getConfig({ signal }),
-        api.getActionsConfig({ signal }),
-        api.getTime({ signal }),
-        api.getWifi({ signal }),
-      ]);
-      const doc = buildBackup(
-        cfgEnv.config,
-        actEnv,
-        { tz: timeInfo.tz, ntp1: timeInfo.ntp1, ntp2: timeInfo.ntp2 },
-        { ssid: wifiInfo.ssid, password: wifiInfo.password ?? "" },
-      );
-      downloadJsonFile(backupDownloadFilename(), doc);
+      const doc = await api.getSystemBackup({ signal });
+      downloadJsonFile(backupDownloadFilename(), doc as HelioZeroBackup);
     } catch (e) {
       if ((e as DOMException)?.name === "AbortError") return;
       console.error(e);

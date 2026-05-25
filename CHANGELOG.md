@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Breaking
 
-- **First public release:** reflashing after an EEPROM layout bump **factory-resets** persisted Wi‑Fi, MQTT, source, and actions. Export a web backup (schema v2) before flashing. Load channels persist as JSON in EEPROM extension magic `0xE220`.
+- **First public release:** reflashing after an EEPROM layout bump **factory-resets** persisted Wi‑Fi, MQTT, source, and actions. Export a web backup before flashing. Load channels persist as JSON in EEPROM extension magic `0xE220`.
 
 ### Security
 

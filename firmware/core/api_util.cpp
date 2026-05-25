@@ -172,6 +172,9 @@ static bool api_auth_ap_setup_bootstrap(WebServer &server) {
   if (uri == "/api/v1/config" || uri == "/api/v1/actions/config" || uri == "/api/v1/time") {
     return true;
   }
+  if (uri == "/api/v1/system/backup" && (server.method() == HTTP_GET || server.method() == HTTP_PUT)) {
+    return true;
+  }
   if (api_auth_ap_clear_http_password(server)) return true;
   if (uri == "/api/v1/system/http-auth" && server.method() == HTTP_PUT && !api_auth_enabled()) {
     return true;

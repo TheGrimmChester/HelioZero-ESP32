@@ -72,6 +72,78 @@ describe("Dialog", () => {
     setAttr.mockRestore();
   });
 
+  it("runs sync onClick in the same turn as the click (no await microtask)", () => {
+    const order: string[] = [];
+    openDialog({
+      title: "T",
+      body: "x",
+      closeOnBackdrop: false,
+      actions: [
+        {
+          label: "Copy",
+          kind: "primary",
+          closeOnClick: false,
+          onClick: () => {
+            order.push("handler");
+          },
+        },
+      ],
+    });
+    const btn = document.querySelector(".btn--primary") as HTMLButtonElement;
+    btn.click();
+    order.push("after-click");
+    expect(order).toEqual(["handler", "after-click"]);
+  });
+
+  it("awaits async onClick before closing", async () => {
+    const order: string[] = [];
+    openDialog({
+      title: "T",
+      body: "x",
+      closeOnBackdrop: false,
+      actions: [
+        {
+          label: "Go",
+          kind: "primary",
+          onClick: async () => {
+            await Promise.resolve();
+            order.push("async-done");
+          },
+        },
+      ],
+    });
+    const btn = document.querySelector(".btn--primary") as HTMLButtonElement;
+    btn.click();
+    order.push("after-click");
+    await Promise.resolve();
+    expect(order).toEqual(["after-click", "async-done"]);
+  });
+
+  it("logs async onClick rejection without closing when closeOnClick false", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    openDialog({
+      title: "T",
+      body: "x",
+      closeOnBackdrop: false,
+      actions: [
+        {
+          label: "Bad",
+          kind: "danger",
+          closeOnClick: false,
+          onClick: async () => {
+            throw new Error("async-boom");
+          },
+        },
+      ],
+    });
+    const btn = document.querySelector(".btn--danger") as HTMLButtonElement;
+    btn.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(document.querySelector("dialog")?.open).toBe(true);
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+
   it("logs action errors without closing when closeOnClick false", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     openDialog({

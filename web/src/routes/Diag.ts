@@ -12,6 +12,7 @@ import { routeCleanup } from "../utils/routeLifecycle";
 import { buildMainsFrequencyBanner } from "../components/MainsFrequencyBanner";
 import { buildPageHeader } from "../components/ui/pageHeader";
 import { openFactoryResetDialog } from "../components/FactoryResetDialog";
+import { copyTextToClipboardSync } from "../utils/copyToClipboard";
 
 export function mountDiag(ctx: RouteCtx): () => void {
   const { outlet, signal } = ctx;
@@ -211,7 +212,7 @@ export function mountDiag(ctx: RouteCtx): () => void {
   let lastMeasurements: Measurements | null = null;
   let lastSystem: SystemInfo | null = null;
 
-  async function copy() {
+  function copy() {
     const lines: string[] = [];
     if (lastMeasurements) {
       lines.push(T.diag.copySectionMeasurements);
@@ -226,12 +227,9 @@ export function mountDiag(ctx: RouteCtx): () => void {
       lines.push(JSON.stringify(deviceInfo.get(), null, 2));
     }
     const text = lines.join("\n");
-    try {
-      await navigator.clipboard.writeText(text);
-      toast(T.copyOk, "success");
-    } catch {
-      toast(T.copyErr, "error");
-    }
+    const ok = copyTextToClipboardSync(text);
+    if (ok) toast(T.copyOk, "success");
+    else toast(T.copyErr, "error");
   }
 
   function confirmReboot() {

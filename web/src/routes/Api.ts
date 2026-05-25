@@ -15,6 +15,7 @@ import { buildPageHeader } from "../components/ui/pageHeader";
 import { docsPageUrl } from "../fieldHelp/docUrl";
 import { applyPublicBootstrap } from "../api/publicBootstrap";
 import { requiresHttpAuthSession } from "../auth/httpAuthGate";
+import { copyTextToClipboardSync } from "../utils/copyToClipboard";
 
 export async function mountApi(ctx: RouteCtx): Promise<() => void> {
   const { outlet, signal } = ctx;
@@ -191,24 +192,27 @@ export async function mountApi(ctx: RouteCtx): Promise<() => void> {
       readonly: true,
       value: token,
     }) as HTMLInputElement;
-    openDialog({
+    const { close } = openDialog({
       title: A.tokenCreatedTitle,
       body: h(
         "div",
         {},
         h("p", {}, A.tokenCreatedBody.replace("{label}", label)),
         input,
+        h("p", { class: "field__hint" }, A.tokenCopyManualHint),
       ),
       actions: [
         {
           label: A.tokenCopy,
           kind: "primary",
-          onClick: async () => {
-            try {
-              await navigator.clipboard.writeText(token);
+          closeOnClick: false,
+          onClick: () => {
+            const ok = copyTextToClipboardSync(token, input);
+            if (ok) {
               toast(T.copyOk, "success");
-            } catch {
-              input.select();
+              close();
+            } else {
+              requestAnimationFrame(() => input.select());
               toast(T.copyErr, "error");
             }
           },
@@ -216,6 +220,7 @@ export async function mountApi(ctx: RouteCtx): Promise<() => void> {
         { label: T.close, kind: "ghost", onClick: () => {} },
       ],
     });
+    requestAnimationFrame(() => input.select());
   }
 
   async function revokeToken(t: AuthTokenInfo) {

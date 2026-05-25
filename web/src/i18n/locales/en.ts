@@ -108,6 +108,8 @@ export const en = {
     tokenCreatedTitle: "Token created",
     tokenCreatedBody: "Copy this token for “{label}”. It will not be shown again.",
     tokenCopy: "Copy token",
+    tokenCopyManualHint:
+      "If copy fails, the token stays selected — press Ctrl+C (Cmd+C on Mac).",
     sectionCors: "Browser CORS (lab)",
     httpCorsEnabled: "Allow browser CORS on GET /api/v1 (lab only)",
     httpCorsHint:

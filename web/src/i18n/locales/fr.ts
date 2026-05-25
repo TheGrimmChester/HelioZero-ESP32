@@ -87,6 +87,18 @@ export const fr = {
       "Pour Home Assistant, scripts ou autres automatisations. Chaque jeton n’est affiché qu’une fois ; conservez-le en lieu sûr. Maximum 4 jetons.",
     tokensEmpty: "Aucun jeton pour l’instant.",
     tokensNeedAuth: "Activez le mot de passe API ci-dessus pour créer des jetons.",
+    tokensNeedAuthDetail:
+      "Les jetons permanents ne sont disponibles qu’après activation de la protection API sur le LAN. Définissez un mot de passe dans la section « Accès API HTTP » ci-dessus, connectez-vous, puis créez un jeton.",
+    tokensNeedSignIn: "Connectez-vous avec le mot de passe API ci-dessus avant de créer un jeton.",
+    tokenCreateDisabledHint: "Définissez d’abord un mot de passe API et connectez-vous.",
+    apiErrors: {
+      httpAuthPasswordNotSet:
+        "Impossible : aucun mot de passe API sur l’appareil. Définissez-le dans « Accès API HTTP » ci-dessus, connectez-vous, puis réessayez.",
+      maxTokensReached: "Maximum de 4 jetons atteint. Révoquez un jeton existant.",
+      invalidLabel: "Libellé invalide (ASCII imprimable uniquement, 24 caractères max).",
+      noFreeTokenId: "Impossible d’allouer un identifiant de jeton.",
+      failedToHashToken: "Échec de création du jeton sur l’appareil.",
+    },
     tokenLabel: "Libellé (facultatif)",
     tokenLabelPlaceholder: "ex. Home Assistant",
     tokenCreate: "Créer un jeton",

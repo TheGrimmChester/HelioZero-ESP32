@@ -36,8 +36,180 @@ TEST(HelioHttpResponseLogic, ExtractChunkedBody) {
 
 TEST(HelioHttpResponseLogic, RejectsRedirectAndEmpty) {
   const std::string redirect =
-      "HTTP/1.1 301 Moved\r\nLocation: https://example/\r\n\r\n";
+      "HTTP/1.1 301 Moved\r\nLocation: https://example/\r\n\r\n\r\n";
   EXPECT_TRUE(helio_http_response_extract_body(redirect).empty());
   const std::string empty_ok = "HTTP/1.0 200 OK\r\n\r\n";
   EXPECT_TRUE(helio_http_response_extract_body(empty_ok).empty());
+}
+
+TEST(HelioHttpResponseLogic, StatusRejectsMalformedStatusLine) {
+  EXPECT_FALSE(helio_http_response_status_ok("HTTP/1.1"));
+  EXPECT_FALSE(helio_http_response_status_ok("HTTP/1.1 20a OK\r\n"));
+  EXPECT_FALSE(helio_http_response_status_ok("HTTP/1.1 199 OK\r\n"));
+  EXPECT_FALSE(helio_http_response_status_ok("HTTP/1.1 300 OK\r\n"));
+}
+
+TEST(HelioHttpResponseLogic, ExtractRejectsMissingHeaderTerminator) {
+  EXPECT_TRUE(helio_http_response_extract_body("HTTP/1.1 200 OK\r\nContent-Type: json").empty());
+}
+
+TEST(HelioHttpResponseLogic, ExtractTrimsTrailingWhitespaceOnIdentityBody) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: application/json\r\n"
+      "\r\n"
+      "{\"ok\":true}  \r\n\n";
+  EXPECT_EQ(helio_http_response_extract_body(wire), "{\"ok\":true}");
+}
+
+TEST(HelioHttpResponseLogic, ChunkedHeaderCaseInsensitiveWithTab) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "content-type: text/plain\r\n"
+      "transfer-encoding:\tchunked\r\n"
+      "\r\n"
+      "5\r\n"
+      "hello"
+      "\r\n"
+      "0\r\n"
+      "\r\n";
+  EXPECT_EQ(helio_http_response_extract_body(wire), "hello");
+}
+
+TEST(HelioHttpResponseLogic, ChunkedSkipsUnrelatedHeaderLines) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "X-Transfer-Encoding: identity\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "3\r\n"
+      "abc"
+      "\r\n"
+      "0\r\n"
+      "\r\n";
+  EXPECT_EQ(helio_http_response_extract_body(wire), "abc");
+}
+
+TEST(HelioHttpResponseLogic, ChunkedRejectsInvalidSizeLine) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "GG\r\n"
+      "0\r\n"
+      "\r\n";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ChunkedRejectsTruncatedPayload) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "10\r\n"
+      "short"
+      "\r\n";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ChunkedRejectsMissingChunkCrlf) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "5\r\n"
+      "hello";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ChunkedRejectsMissingSizeLineCrlf) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "5";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ChunkedConcatenatesMultipleChunks) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "2\r\n"
+      "ab"
+      "\r\n"
+      "2\r\n"
+      "cd"
+      "\r\n"
+      "0\r\n"
+      "\r\n";
+  EXPECT_EQ(helio_http_response_extract_body(wire), "abcd");
+}
+
+TEST(HelioHttpResponseLogic, HeaderScanStopsOnLastLineWithoutCrlf) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "X-Ignore: y\r\n"
+      "\r\n"
+      "0\r\n"
+      "\r\n";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ChunkedHeaderRequiresColonAfterName) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "2\r\n"
+      "ok"
+      "\r\n"
+      "0\r\n"
+      "\r\n";
+  EXPECT_EQ(helio_http_response_extract_body(wire), "ok");
+}
+
+TEST(HelioHttpResponseLogic, ChunkedRejectsLfOnlyAfterChunkData) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "2\r\n"
+      "ab"
+      "\n"
+      "0\r\n"
+      "\r\n";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ChunkedRejectsCrOnlyAfterChunkData) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n"
+      "2\r\n"
+      "ab"
+      "\r"
+      "0\r\n"
+      "\r\n";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ChunkedEmptyBodyReturnsEmpty) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n"
+      "\r\n";
+  EXPECT_TRUE(helio_http_response_extract_body(wire).empty());
+}
+
+TEST(HelioHttpResponseLogic, ExtractTrimsTrailingCrOnly) {
+  const std::string wire =
+      "HTTP/1.1 200 OK\r\n"
+      "\r\n"
+      "x\r";
+  EXPECT_EQ(helio_http_response_extract_body(wire), "x");
 }

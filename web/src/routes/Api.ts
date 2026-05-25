@@ -1,6 +1,7 @@
 import type { RouteCtx } from "../router";
 import { h } from "../utils/dom";
-import { api, ApiError } from "../api/client";
+import { api } from "../api/client";
+import { formatApiError } from "../api/apiErrors";
 import type { AuthTokenInfo } from "../api/types";
 import { toast } from "../components/Toast";
 import { openDialog } from "../components/Dialog";
@@ -12,6 +13,8 @@ import { attachSettingsCardAutosave } from "./settings/cardAutosave";
 import { buildHttpAuthSection } from "./api/httpAuthSection";
 import { buildPageHeader } from "../components/ui/pageHeader";
 import { docsPageUrl } from "../fieldHelp/docUrl";
+import { applyPublicBootstrap } from "../api/publicBootstrap";
+import { requiresHttpAuthSession } from "../auth/httpAuthGate";
 
 export async function mountApi(ctx: RouteCtx): Promise<() => void> {
   const { outlet, signal } = ctx;
@@ -24,6 +27,8 @@ export async function mountApi(ctx: RouteCtx): Promise<() => void> {
   outlet.append(loading);
 
   let httpCorsEnabled = false;
+  let httpAuthEnabled = false;
+
   try {
     const { config } = await api.getConfig({ signal });
     httpCorsEnabled = !!config.http_cors_enabled;
@@ -87,18 +92,66 @@ export async function mountApi(ctx: RouteCtx): Promise<() => void> {
 
   const tokensList = h("ul", { class: "api-token-list" });
   const tokensEmpty = h("p", { class: "field__hint" }, A.tokensEmpty);
-  const tokensDisabled = h("p", { class: "field__hint", hidden: true }, A.tokensNeedAuth);
+  const tokensNeedAuthBanner = h(
+    "p",
+    { class: "banner banner--warn", role: "alert", hidden: true },
+    h("strong", {}, A.tokensNeedAuth),
+    " ",
+    A.tokensNeedAuthDetail,
+  );
+  const tokensNeedSignInBanner = h(
+    "p",
+    { class: "banner banner--info", role: "status", hidden: true },
+    A.tokensNeedSignIn,
+  );
+
+  const labelInput = h("input", {
+    type: "text",
+    class: "field__input",
+    placeholder: A.tokenLabelPlaceholder,
+    maxlength: "24",
+  }) as HTMLInputElement;
+
+  const createTokenBtn = h(
+    "button",
+    {
+      type: "button",
+      class: "btn btn--primary",
+      style: "margin-top:8px;",
+    },
+    A.tokenCreate,
+  ) as HTMLButtonElement;
+
+  function updateCreateTokenUi() {
+    const needPassword = !httpAuthEnabled;
+    const needSignIn = httpAuthEnabled && requiresHttpAuthSession();
+    const blocked = needPassword || needSignIn;
+
+    tokensNeedAuthBanner.hidden = !needPassword;
+    tokensNeedSignInBanner.hidden = !needSignIn;
+    createTokenBtn.disabled = blocked;
+    labelInput.disabled = blocked;
+    createTokenBtn.title = blocked ? A.tokenCreateDisabledHint : "";
+    createTokenBtn.setAttribute(
+      "aria-disabled",
+      blocked ? "true" : "false",
+    );
+  }
 
   async function refreshTokens() {
     tokensList.replaceChildren();
     try {
       const pub = await api.getPublic({ signal });
-      if (!pub.http_auth.enabled) {
-        tokensDisabled.hidden = false;
+      applyPublicBootstrap(pub);
+      httpAuthEnabled = pub.http_auth.enabled;
+      updateCreateTokenUi();
+
+      if (!httpAuthEnabled) {
         tokensEmpty.hidden = true;
         return;
       }
-      tokensDisabled.hidden = true;
+      tokensNeedAuthBanner.hidden = true;
+
       const items = await api.listAuthTokens({ signal });
       if (items.length === 0) {
         tokensEmpty.hidden = false;
@@ -126,6 +179,8 @@ export async function mountApi(ctx: RouteCtx): Promise<() => void> {
     } catch {
       tokensEmpty.hidden = false;
       tokensEmpty.textContent = T.status.error;
+    } finally {
+      updateCreateTokenUi();
     }
   }
 
@@ -178,7 +233,7 @@ export async function mountApi(ctx: RouteCtx): Promise<() => void> {
               toast(T.saved, "success");
               await refreshTokens();
             } catch (e) {
-              toast(e instanceof ApiError ? e.message : T.saveError, "error");
+              toast(formatApiError(e), "error");
             }
           },
         },
@@ -186,47 +241,47 @@ export async function mountApi(ctx: RouteCtx): Promise<() => void> {
     });
   }
 
-  const labelInput = h("input", {
-    type: "text",
-    class: "field__input",
-    placeholder: A.tokenLabelPlaceholder,
-    maxlength: "24",
-  }) as HTMLInputElement;
+  createTokenBtn.addEventListener("click", () => {
+    void (async () => {
+      if (!httpAuthEnabled) {
+        toast(A.apiErrors.httpAuthPasswordNotSet, "error");
+        return;
+      }
+      if (requiresHttpAuthSession()) {
+        toast(A.tokensNeedSignIn, "error");
+        return;
+      }
+      try {
+        const res = await api.createAuthToken(
+          labelInput.value.trim() || undefined,
+          { signal },
+        );
+        labelInput.value = "";
+        showTokenOnce(res.token, res.label);
+        await refreshTokens();
+      } catch (e) {
+        toast(formatApiError(e), "error");
+      }
+    })();
+  });
 
   const tokensCard = h(
     "section",
     { class: "card" },
     h("h2", { class: "section__title" }, A.sectionTokens),
     h("p", { class: "field__hint" }, A.tokensHint),
-    tokensDisabled,
+    tokensNeedAuthBanner,
+    tokensNeedSignInBanner,
     tokensEmpty,
     tokensList,
     h("div", { class: "field" }, h("label", { class: "field__label" }, A.tokenLabel), labelInput),
-    h(
-      "button",
-      {
-        type: "button",
-        class: "btn btn--primary",
-        style: "margin-top:8px;",
-        onClick: async () => {
-          try {
-            const res = await api.createAuthToken(
-              labelInput.value.trim() || undefined,
-              { signal },
-            );
-            labelInput.value = "";
-            showTokenOnce(res.token, res.label);
-            await refreshTokens();
-          } catch (e) {
-            toast(e instanceof ApiError ? e.message : T.saveError, "error");
-          }
-        },
-      },
-      A.tokenCreate,
-    ),
+    createTokenBtn,
   );
 
-  const httpAuthSection = await buildHttpAuthSection(T, signal, { helpScope: "api" });
+  const httpAuthSection = await buildHttpAuthSection(T, signal, {
+    helpScope: "api",
+    onHttpAuthChanged: refreshTokens,
+  });
   await refreshTokens();
 
   const form = h("form", { class: "form", onSubmit: (e) => e.preventDefault() });

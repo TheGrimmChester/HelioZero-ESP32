@@ -30,6 +30,7 @@ SAFE_GET_PATHS = [
     "/api/v1/system/audit",
     "/api/v1/device",
     "/api/v1/state",
+    "/api/v1/telemetry/snapshot",
     "/api/v1/health",
     "/api/v1/public",
     "/api/v1/sources",

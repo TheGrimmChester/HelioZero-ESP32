@@ -15,6 +15,7 @@ ROUTE_SPECS = {
     "/api/v1/measurements": "required_measurements_keys.json",
     "/api/v1/config": "required_config_keys.json",
     "/api/v1/state": "required_state_keys.json",
+    "/api/v1/telemetry/snapshot": "required_telemetry_snapshot_keys.json",
     "/api/v1/actions": "required_actions_keys.json",
     "/api/v1/actions/config": "required_actions_config_keys.json",
     "/api/v1/actions/schema": "required_actions_schema_keys.json",

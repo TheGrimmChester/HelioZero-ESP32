@@ -93,6 +93,53 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/telemetry/snapshot:
+    get:
+      tags: [Telemetry]
+      operationId: getTelemetrySnapshot
+      summary: MQTT Home Assistant state JSON equivalent
+      description: |
+        Same key set as the MQTT `{prefix}/{device}_state` topic (capability-gated).
+        Use for REST-only automations and HACS `rest_only` entity polling.
+      x-helio-mqtt-parity: info-retrieval
+      responses:
+        "200":
+          description: Telemetry snapshot object
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/triac/override:
+    post:
+      tags: [Control]
+      operationId: postTriacOverride
+      summary: Set triac AUTO or fixed percent (MQTT triac/set parity)
+      x-helio-mqtt-parity: control
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriacOverrideRequest"
+      responses:
+        "200":
+          description: Override applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/history/power:
     get:
       tags: [History]
@@ -1537,6 +1584,26 @@ components:
           type: boolean
         regulation_hunting:
           type: boolean
+        source_health:
+          type: integer
+          minimum: 0
+          maximum: 100
+        source_stale:
+          type: boolean
+        regulation_active:
+          type: boolean
+        site_cap_active:
+          type: boolean
+        mqtt_connected:
+          type: boolean
+
+    TriacOverrideRequest:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+          description: "`AUTO` or percent `0`–`100` (same as MQTT `triac/set`)."
 
     Measurements:
       type: object
@@ -2095,6 +2162,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ActionOverride"
+        status:
+          type: object
+          properties:
+            source_health:
+              type: integer
+            source_stale:
+              type: boolean
+            regulation_active:
+              type: boolean
+            site_cap_active:
+              type: boolean
+            mqtt_connected:
+              type: boolean
 
     SystemInfo:
       type: object

@@ -2,9 +2,11 @@
  * Auto-split from api_v1_routes.cpp — see api_v1_common.h
  */
 #include "api_v1_common.h"
+#include "helio_ha_state_payload.h"
 #include "helio_regulation_modes.h"
 #include "helio_self_test.h"
 #include "helio_triac_isr.h"
+#include "triac_api_shim.h"
 void handle_get_measurements() {
   API_AUTH_GUARD();
   DynamicJsonDocument doc(2048);
@@ -12,6 +14,40 @@ void handle_get_measurements() {
   String out;
   serializeJson(doc, out);
   api_send_json(server,200, out);
+}
+
+void handle_get_telemetry_snapshot() {
+  API_AUTH_GUARD();
+  DynamicJsonDocument doc(1536);
+  helio_append_ha_state_payload(doc.to<JsonObject>());
+  String out;
+  serializeJson(doc, out);
+  api_send_json(server, 200, out);
+}
+
+void handle_post_triac_override() {
+  API_AUTH_GUARD();
+  if (!server.hasArg("plain")) {
+    api_error(server, 400, "missing_json", "JSON body required");
+    return;
+  }
+  StaticJsonDocument<128> body;
+  DeserializationError err = deserializeJson(body, server.arg("plain"));
+  if (err) {
+    api_error(server, 400, "invalid_json", err.c_str());
+    return;
+  }
+  const char *command = body["command"] | "";
+  String applyErr;
+  if (!helio_apply_triac_command(command, applyErr)) {
+    api_error(server, 400, "invalid_command", applyErr.c_str());
+    return;
+  }
+  StaticJsonDocument<64> out;
+  out["ok"] = true;
+  String serialized;
+  serializeJson(out, serialized);
+  api_send_json(server, 200, serialized);
 }
 
 void handle_get_tariff_tempo() {
@@ -109,6 +145,13 @@ void handle_get_state() {
   JsonArray slots = actions.createNestedArray("active_slots");
   api_action_append_live_state(slots);
   doc["triac_open_percent"] = TriacGetOpenPercent();
+  JsonObject status = doc.createNestedObject("status");
+  const int health = helio_compute_source_health_score();
+  status["source_health"] = health;
+  status["source_stale"] = helio_source_health_is_stale(health);
+  status["regulation_active"] = TriacGetOpenPercent() > 5;
+  status["site_cap_active"] = siteCapActive;
+  status["mqtt_connected"] = clientMQTT.connected();
   doc["heater_load_backoff_active"] = heaterLoadBackoffActive;
   doc["temperature_c"] = temperature;
   doc["time"] = time_sync_valid ? sync_clock_str : "";

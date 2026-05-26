@@ -2,6 +2,7 @@
  * Auto-split from api_v1_routes.cpp — see api_v1_common.h
  */
 #include "api_v1_common.h"
+#include "helio_ha_state_payload.h"
 #include "helio_config_daily_cap_logic.h"
 #include "helio_diag.h"
 #include "helio_triac_calibration_logic.h"
@@ -500,10 +501,5 @@ void api_append_measurements_object(JsonObject doc) {
     doc["linky_tariff"] = LTARF;
   }
   JsonObject diag = doc.createNestedObject("diagnostics");
-  if (helio_diag_uxi_adc_clipping_active()) {
-    diag["adc_clipping"] = true;
-  }
-  if (g_regulation_hunting_active) {
-    diag["regulation_hunting"] = true;
-  }
+  helio_append_measurements_diagnostics(diag);
 }

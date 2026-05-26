@@ -9,6 +9,8 @@ extern WebServer server;
 
 void Init_ApiRoutes() {
   server.on("/api/v1/measurements", HTTP_GET, handle_get_measurements);
+  server.on("/api/v1/telemetry/snapshot", HTTP_GET, handle_get_telemetry_snapshot);
+  server.on("/api/v1/triac/override", HTTP_POST, handle_post_triac_override);
   server.on("/api/v1/tariff/tempo", HTTP_GET, handle_get_tariff_tempo);
   server.on("/api/v1/system", HTTP_GET, handle_get_system);
   server.on("/api/v1/system/audit", HTTP_GET, handle_get_system_audit);

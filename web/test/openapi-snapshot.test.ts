@@ -53,7 +53,9 @@ const EXPECTED_PATHS = [
   "/api/v1/system/reboot",
   "/api/v1/system/save-now",
   "/api/v1/tariff/tempo",
+  "/api/v1/telemetry/snapshot",
   "/api/v1/time",
+  "/api/v1/triac/override",
   "/api/v1/wifi",
   "/api/v1/wifi/scan",
 ].sort();

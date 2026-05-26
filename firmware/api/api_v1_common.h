@@ -158,6 +158,8 @@ const char *override_state_name(byte state);
 byte override_state_from_name(const char *state);
 
 void handle_get_measurements();
+void handle_get_telemetry_snapshot();
+void handle_post_triac_override();
 void handle_get_tariff_tempo();
 void handle_get_system();
 void handle_get_device();

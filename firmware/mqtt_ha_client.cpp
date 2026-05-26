@@ -19,6 +19,8 @@
 #include "mqtt_ha_events_logic.h"
 #include "mqtt_ha_json_config_logic.h"
 #include "helio_source_health_logic.h"
+#include "helio_ha_state_payload.h"
+#include "triac_api_shim.h"
 #include "helio_vacation_logic.h"
 #include "storage_eeprom.h"
 #include "metering/pmqtt_bindings.h"
@@ -293,14 +295,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
   if (!topicStr.startsWith(base)) return;
   String cmd = topicStr.substring(base.length());
   if (cmd == "triac/set") {
-    MqttTriacCmd triacCmd;
-    if (mqtt_ha_command_parse_triac(msg.c_str(), &triacCmd)) {
-      if (triacCmd.kind == MqttTriacCmdKind::Auto) {
-        ApiSetActionOverride(0, "auto", 0, 0, err);
-      } else {
-        ApiSetActionOverride(0, "triac_fixed", triacCmd.percent, 0, err);
-      }
-    }
+    helio_apply_triac_command(msg.c_str(), err);
     return;
   }
   if (cmd == "source/set") {
@@ -442,73 +437,16 @@ static void mqttPublishHaEventsFromState(bool surplus_active, bool source_stale,
 //****************************************
 
 void SendDataToHomeAssistant() {
-  //common state topic for all entities of this ESP32 Device
   String StateTopic = mqttStateTopic();
   DynamicJsonDocument doc(1536);
   char buffer[1536];
-  doc["source"] = Source;
-  doc["device_uid"] = helio_device_uid();
-  if (helio_cap_mqtt_triac_channel_block()) {
-    doc["second_active_import_w"] = second_active_import_w;  // Triac
-    doc["second_active_export_w"] = second_active_export_w;  // Triac
-    doc["second_voltage_v"] = second_voltage_v;
-    doc["second_current_a"] = second_current_a;
-    doc["second_power_factor"] = second_power_factor;
-    doc["second_energy_import_wh"] = second_energy_import_wh;
-    doc["second_energy_export_wh"] = second_energy_export_wh;
-    doc["second_day_energy_import_wh"] = second_day_energy_import_wh;
-    doc["second_day_energy_export_wh"] = second_day_energy_export_wh;
-    doc["mains_frequency_hz"] = mains_frequency_hz;
-  }
-  if (temperature >-100) {
-    doc["temperature_c"] = temperature;
-  }
-  if (helio_cap_mqtt_linky_tariff()) {
-    doc["linky_ltarf"] = LTARF;
-    doc["tariff_code"] = tempo_rte_logic_tariff_code(std::string(LTARF.c_str()));
-  }
-  if (tempoRteEnabled) {
-    doc["rte_today"] = rte_today;
-    doc["rte_tomorrow"] = rte_tomorrow;
-  }
-  doc["house_net_power_w"] = house_active_import_w - house_active_export_w;  // house net
-  doc["house_active_import_w"] = house_active_import_w;  // house import
-  doc["house_active_export_w"] = house_active_export_w;  // house export
-  doc["house_voltage_v"] = house_voltage_v;
-  doc["house_current_a"] = house_current_a;
-  doc["house_power_factor"] = house_power_factor;
-  doc["house_energy_import_wh"] = house_energy_import_wh;
-  doc["house_energy_export_wh"] = house_energy_export_wh;
-  doc["house_day_energy_import_wh"] = house_day_energy_import_wh;
-  doc["house_day_energy_export_wh"] = house_day_energy_export_wh;
-
-
-  doc["triac_open_percent"] = 100 - triac_delay_percent;
-  doc["adc_clipping"] = helio_diag_uxi_adc_clipping_active() ? "ON" : "OFF";
-  doc["regulation_hunting"] = g_regulation_hunting_active ? "ON" : "OFF";
-  const int health = mqttComputeSourceHealthScore();
-  doc["source_health"] = health;
-  doc["source_stale"] = helio_source_health_logic_is_stale(health) ? "ON" : "OFF";
-  const int triac_open = 100 - triac_delay_percent;
-  doc["regulation_active"] = triac_open > 5 ? "ON" : "OFF";
-  doc["mqtt_connected"] = clientMQTT.connected() ? "ON" : "OFF";
-  doc["site_cap_active"] = siteCapActive ? "ON" : "OFF";
-  doc["heater_load_backoff_active"] = heaterLoadBackoffActive ? "ON" : "OFF";
-  doc["max_routed_w"] = maxRoutedW;
-  const uint32_t now_epoch = static_cast<uint32_t>(time(NULL));
-  doc["vacation"] = helio_vacation_logic_active(vacationEnabled, vacationEndEpoch, now_epoch) ? "ON" : "OFF";
-  char action_key[20];
-  for (int i = 0; i < NbActions; i++) {
-    snprintf(action_key, sizeof(action_key), "action_%d", i);
-    doc[action_key] = load_channels[i].On ? "ON" : "OFF";
-  }
-
-
-
+  helio_append_ha_state_payload(doc.to<JsonObject>());
+  const int health = helio_compute_source_health_score();
+  const int triac_open = TriacGetOpenPercent();
   size_t n = serializeJson(doc, buffer);
   bool published = clientMQTT.publish(StateTopic.c_str(), buffer, n);
   clientMQTT.publish(mqttAvailabilityTopic().c_str(), "online", true);
-  mqttPublishHaEventsFromState(triac_open > 5, helio_source_health_logic_is_stale(health),
+  mqttPublishHaEventsFromState(triac_open > 5, helio_source_health_is_stale(health),
                                helio_cap_mqtt_linky_tariff() ? LTARF.c_str() : "");
   doc.clear();
   buffer[0] = '\0';

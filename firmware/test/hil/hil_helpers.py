@@ -45,15 +45,29 @@ def poll_wifi_scan(
     session: requests.Session,
     base_url: str,
     *,
-    max_wait_s: float = 20,
+    max_wait_s: float = 30,
     poll_s: float = 0.5,
     timeout: float = 20,
+    request_attempts: int = 3,
 ) -> dict[str, Any]:
     """Poll GET /api/v1/wifi/scan until scan completes (HTTP 200, scanning false)."""
     url = f"{base_url.rstrip('/')}/api/v1/wifi/scan"
     deadline = time.time() + max_wait_s
     while time.time() < deadline:
-        r = session.get(url, timeout=timeout)
+        r: requests.Response | None = None
+        last_exc: BaseException | None = None
+        for attempt in range(request_attempts):
+            try:
+                r = session.get(url, timeout=timeout)
+                last_exc = None
+                break
+            except (requests.Timeout, requests.ConnectionError) as exc:
+                last_exc = exc
+                if attempt + 1 < request_attempts:
+                    time.sleep(poll_s)
+        if last_exc is not None:
+            raise last_exc
+        assert r is not None
         if r.status_code not in (200, 202):
             r.raise_for_status()
         data = r.json()

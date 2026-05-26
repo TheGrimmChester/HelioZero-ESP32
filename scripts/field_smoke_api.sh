@@ -5,11 +5,41 @@ set -euo pipefail
 BASE="${1:-${HELIO_ZERO_FIELD_URL:-${HELIO_ZERO_MOCK_URL:-${HELIO_ZERO_HIL_URL:-http://127.0.0.1:8787}}}}"
 BASE="${BASE%/}"
 
+HELIO_SMOKE_AUTH=()
+_resolve_smoke_auth() {
+  local token=""
+  if [[ -n "${HELIO_ZERO_API_BEARER_TOKEN:-}" ]]; then
+    token="${HELIO_ZERO_API_BEARER_TOKEN}"
+  elif [[ -n "${HELIO_ZERO_HIL_PASSWORD:-}" ]]; then
+    token="$(
+      curl -fsS -m 15 -X POST -H "Content-Type: application/json" \
+        -d "{\"password\":\"${HELIO_ZERO_HIL_PASSWORD}\"}" \
+        "${BASE}/api/v1/auth/login" \
+        | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])"
+    )"
+  fi
+  if [[ -n "${token}" ]]; then
+    HELIO_SMOKE_AUTH=(-H "Authorization: Bearer ${token}")
+    return 0
+  fi
+  local code
+  code="$(curl -sS -m 5 -o /dev/null -w "%{http_code}" "${BASE}/api/v1/health" 2>/dev/null || echo "000")"
+  if [[ "${code}" == "401" ]]; then
+    echo "FAIL: ${BASE}/api/v1/health returned 401 — set HELIO_ZERO_API_BEARER_TOKEN or HELIO_ZERO_HIL_PASSWORD" >&2
+    exit 1
+  fi
+}
+
+smoke_curl() {
+  curl -fsS -m 10 "${HELIO_SMOKE_AUTH[@]}" "$@"
+}
+
 echo "== Field smoke API (${BASE}) =="
+_resolve_smoke_auth
 
-curl -fsS -m 10 "${BASE}/api/v1/health" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok') is True or d.get('status')=='ok' or 'ok' in str(d).lower(), d"
+smoke_curl "${BASE}/api/v1/health" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok') is True or d.get('status')=='ok' or 'ok' in str(d).lower(), d"
 
-m="$(curl -fsS -m 10 "${BASE}/api/v1/measurements")"
+m="$(smoke_curl "${BASE}/api/v1/measurements")"
 python3 -c "
 import json, sys
 m = json.loads(sys.argv[1])
@@ -20,7 +50,7 @@ assert house['grid_net_w'] == house['active_import_w'] - house['active_export_w'
 print('measurements OK:', house['grid_net_w'], 'W net')
 " "$m"
 
-inject_code="$(curl -fsS -m 5 -o /dev/null -w "%{http_code}" -X POST "${BASE}/api/v1/sources/test/inject" \
+inject_code="$(curl -fsS -m 5 -o /dev/null -w "%{http_code}" "${HELIO_SMOKE_AUTH[@]}" -X POST "${BASE}/api/v1/sources/test/inject" \
   -H 'Content-Type: application/json' \
   -d '{"house":{"active_import_w":80,"active_export_w":3500}}' 2>/dev/null || echo "000")"
 if [[ "${inject_code}" =~ ^2 ]]; then
@@ -29,7 +59,7 @@ if [[ "${inject_code}" =~ ^2 ]]; then
     exit 1
   fi
   sleep 1
-  st="$(curl -fsS -m 10 "${BASE}/api/v1/state")"
+  st="$(smoke_curl "${BASE}/api/v1/state")"
   python3 -c "
 import json, sys
 st = json.loads(sys.argv[1])

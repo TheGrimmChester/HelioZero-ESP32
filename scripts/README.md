@@ -17,7 +17,7 @@ Contract checks, codegen, field bench, and the local CI-parity runner. **CI-only
 | [`check_naming.sh`](check_naming.sh) | No `rms_*` filenames, product RMS tokens, or camelCase JSON keys in Helio emitters. |
 | [`check_tracked_assets.sh`](check_tracked_assets.sh) | Fail if `web/public/**` is git-tracked (generated copies). |
 | [`ci_host_checks.sh`](ci_host_checks.sh) | CI-parity bundle: assets, naming, tokens, native, OpenAPI, goldens (`--skip-coverage` optional). |
-| [`run_all_firmware_checks.sh`](run_all_firmware_checks.sh) | `ci_host_checks.sh` + web typecheck/coverage + `wroom32` build, optional HIL pytest. |
+| [`run_all_firmware_checks.sh`](run_all_firmware_checks.sh) | `ci_host_checks.sh` + web typecheck/coverage + `wroom32` build; with `HELIO_ZERO_HIL_URL`, full HIL pytest + `field_smoke_api.sh`. |
 
 ## Codegen
 
@@ -30,7 +30,7 @@ Contract checks, codegen, field bench, and the local CI-parity runner. **CI-only
 
 | Script | Purpose |
 |--------|---------|
-| [`field_smoke_api.sh`](field_smoke_api.sh) | API smoke — `HELIO_ZERO_FIELD_URL`, `HELIO_ZERO_MOCK_URL`, or `HELIO_ZERO_HIL_URL`. |
+| [`field_smoke_api.sh`](field_smoke_api.sh) | API smoke — `HELIO_ZERO_FIELD_URL`, `HELIO_ZERO_MOCK_URL`, or `HELIO_ZERO_HIL_URL`; uses `HELIO_ZERO_API_BEARER_TOKEN` or `HELIO_ZERO_HIL_PASSWORD` when the API requires auth. |
 | [`fleet_sign_bundle.py`](fleet_sign_bundle.py) | Sign fleet import bundles. |
 
 ## Typical runs

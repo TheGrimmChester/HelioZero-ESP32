@@ -3,6 +3,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     env: {
+      // Vitest exposes BASE on import.meta.env; ignore accidental shell BASE=http://device
+      BASE: "/",
       VITE_DOCS_SITE_ORIGIN: "https://heliozero.clouded.fr",
     },
     environment: "node",

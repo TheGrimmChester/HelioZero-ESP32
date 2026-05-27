@@ -73,6 +73,13 @@ export const PMQTT_METRIC_CATALOG: MetricDef[] = [
   { id: "raw_meter.current_second_a", label: "Courant second", unit: "A", tier: "optional", groups: [] },
   { id: "raw_meter.pf_second", label: "PF second", unit: "", tier: "optional", groups: [] },
   { id: "raw_meter.freq_hz", label: "Frequence reseau", unit: "Hz", tier: "optional", groups: [] },
+  {
+    id: "triac.open_percent",
+    label: "Ouverture triac (%)",
+    unit: "",
+    tier: "optional",
+    groups: [],
+  },
 ];
 
 export function metricDef(id: string): MetricDef | undefined {

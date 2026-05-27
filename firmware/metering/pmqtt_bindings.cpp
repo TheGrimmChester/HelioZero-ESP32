@@ -3,6 +3,7 @@
 #include "helio_globals.h"
 #include "helio_meter_json.h"
 #include "helio_pub.h"
+#include "helio_regulation_state.h"
 
 #include <ArduinoJson.h>
 
@@ -221,6 +222,15 @@ bool apply_metric_value(const PmqttBindingEntry &b, float value, String *err) {
     mains_frequency_hz = value;
     return true;
   }
+  if (m == "triac.open_percent") {
+    int open = static_cast<int>(value + (value >= 0.0f ? 0.5f : -0.5f));
+    if (open < 0) open = 0;
+    if (open > 100) open = 100;
+    g_triac_delay_percent[0] = 100 - open;
+    g_triac_delay_percent_f[0] = static_cast<float>(g_triac_delay_percent[0]);
+    helio_regulation_sync_triac_globals();
+    return true;
+  }
   if (err) *err = "unknown_metric";
   return false;
 }
@@ -343,6 +353,25 @@ bool pmqtt_bindings_provides_day_energy() {
   if (!parse_and_cache(bindings, nullptr)) return false;
   for (const auto &b : bindings) {
     if (b.enabled && metric_is_day_energy(b.metric)) return true;
+  }
+  return false;
+}
+
+bool pmqtt_bindings_triac_open_percent_configured() {
+  std::vector<PmqttBindingEntry> bindings;
+  if (!parse_and_cache(bindings, nullptr)) return false;
+  for (const auto &b : bindings) {
+    if (b.enabled && b.metric == "triac.open_percent") return true;
+  }
+  return false;
+}
+
+bool pmqtt_bindings_triac_open_percent_live(unsigned long stale_ms) {
+  if (!pmqtt_bindings_triac_open_percent_configured()) return false;
+  const unsigned long now = millis();
+  for (const auto &st : g_metricStates) {
+    if (st.metric != "triac.open_percent" || !st.ok || st.last_rx_ms == 0) continue;
+    if (now - st.last_rx_ms <= stale_ms) return true;
   }
   return false;
 }

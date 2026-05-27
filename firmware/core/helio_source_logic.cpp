@@ -43,6 +43,11 @@ bool helio_source_logic_cap_mqtt_triac_channel_block_for(SourceId id) {
   return id == SourceId::UxIx2 || id == SourceId::UxIx3 || id == SourceId::ShellyEm;
 }
 
+bool helio_source_logic_second_channel_snapshot_visible(float voltage_v, int active_import_w,
+                                                        int active_export_w, float current_a) {
+  return voltage_v > 0.1f || active_import_w != 0 || active_export_w != 0 || current_a > 0.01f;
+}
+
 bool helio_source_logic_cap_mqtt_linky_tariff_for(SourceId id, bool tempo_rte_enabled) {
   return id == SourceId::Linky || tempo_rte_enabled;
 }

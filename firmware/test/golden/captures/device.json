@@ -1,0 +1,15 @@
+{
+  "device_uid": "aabbccddeeff",
+  "source": "UxIx2",
+  "source_data": "UxIx2",
+  "router_name": "HelioZero",
+  "firmware_version": "0.1.0",
+  "probe_second_name": "Second channel",
+  "probe_house_name": "House metering",
+  "ext_peer_ip": "0.0.0.0",
+  "ext_peer_port": 80,
+  "ext_peer_path": "/api/v1/measurements",
+  "temperature_label": "temperature_c",
+  "firmware": {},
+  "chip": {}
+}

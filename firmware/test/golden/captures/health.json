@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "uptime_s": 1,
+  "source_ok": false,
+  "date_valid": false,
+  "mqtt_connected": false,
+  "free_heap": 100000,
+  "wifi_connected": true
+}

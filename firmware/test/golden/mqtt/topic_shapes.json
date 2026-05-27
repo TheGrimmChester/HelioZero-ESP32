@@ -1,0 +1,11 @@
+{
+  "description": "MQTT topic shapes: HA discovery on homeassistant/, state and commands on telemetry prefix",
+  "discovery_prefix": "homeassistant",
+  "telemetry_prefix": "helio_zero",
+  "device": "HELIO_TEST",
+  "state_topic": "helio_zero/HELIO_TEST_state",
+  "availability_topic": "helio_zero/HELIO_TEST/availability",
+  "discovery_sensor_pw": "homeassistant/sensor/HELIO_TEST_Pw/config",
+  "command_triac": "helio_zero/HELIO_TEST/triac/set",
+  "sensor_discovery_name_pw": "HELIO_TEST Pw"
+}

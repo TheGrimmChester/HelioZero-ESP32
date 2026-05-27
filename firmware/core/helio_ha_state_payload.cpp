@@ -2,6 +2,7 @@
 
 #include "helio_device_id.h"
 #include "helio_globals.h"
+#include "helio_source_logic.h"
 #include "helio_diag.h"
 #include "triac_api_shim.h"
 #include "helio_source.h"
@@ -45,7 +46,8 @@ void helio_append_measurements_diagnostics(JsonObject diag) {
 void helio_append_ha_state_payload(JsonObject doc) {
   doc["source"] = Source;
   doc["device_uid"] = helio_device_uid();
-  if (helio_cap_mqtt_triac_channel_block()) {
+  if (helio_source_logic_second_channel_snapshot_visible(
+          second_voltage_v, second_active_import_w, second_active_export_w, second_current_a)) {
     doc["second_active_import_w"] = second_active_import_w;
     doc["second_active_export_w"] = second_active_export_w;
     doc["second_voltage_v"] = second_voltage_v;

@@ -16,6 +16,14 @@ TEST(HelioSourceLogic, EffectiveIdForExt) {
   EXPECT_EQ(helio_source_logic_effective_id(SourceId::UxI, "ignored"), SourceId::UxI);
 }
 
+TEST(HelioSourceLogic, SecondChannelSnapshotVisible) {
+  EXPECT_FALSE(helio_source_logic_second_channel_snapshot_visible(0.0f, 0, 0, 0.0f));
+  EXPECT_TRUE(helio_source_logic_second_channel_snapshot_visible(235.0f, 0, 0, 0.0f));
+  EXPECT_TRUE(helio_source_logic_second_channel_snapshot_visible(0.0f, 879, 0, 0.0f));
+  EXPECT_FALSE(helio_source_logic_cap_mqtt_triac_channel_block_for(SourceId::Pmqtt));
+  EXPECT_TRUE(helio_source_logic_second_channel_snapshot_visible(0.0f, 879, 0, 0.0f));
+}
+
 TEST(HelioSourceLogic, CapabilityMatrix) {
   EXPECT_TRUE(helio_source_logic_cap_mqtt_triac_channel_block_for(SourceId::UxIx2));
   EXPECT_FALSE(helio_source_logic_cap_mqtt_triac_channel_block_for(SourceId::Linky));

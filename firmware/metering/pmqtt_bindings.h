@@ -26,6 +26,10 @@ bool pmqtt_bindings_parse_config(std::vector<PmqttBindingEntry> &out, String *er
 bool pmqtt_bindings_has_required_power(String *missingGroup = nullptr);
 /** True when active bindings include house/second day energy metrics (broker provides EnergieJour_*). */
 bool pmqtt_bindings_provides_day_energy();
+/** True when an enabled binding maps external triac open percent (e.g. Solar Router OuvertureTriac). */
+bool pmqtt_bindings_triac_open_percent_configured();
+/** Configured binding received a fresh value within stale_ms (falls back to local regulation when false). */
+bool pmqtt_bindings_triac_open_percent_live(unsigned long stale_ms = 15000);
 void pmqtt_bindings_collect_topics(std::vector<String> &outTopics);
 bool pmqtt_bindings_apply_message(const String &topic, const String &payload, String *err = nullptr);
 void pmqtt_bindings_cache_payload(const String &topic, const String &payload);

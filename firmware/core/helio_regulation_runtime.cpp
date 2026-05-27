@@ -18,6 +18,7 @@
 #include "helio_triac_calibration_logic.h"
 #include "helio_heater_load_feedback_logic.h"
 #include "helio_diag.h"
+#include "metering/pmqtt_bindings.h"
 
 static HeaterLoadFeedbackState g_heater_load_feedback_state;
 
@@ -112,28 +113,36 @@ void helio_apply_surplus_regulation(void) {
     }
 
     if (i == 0) {
-      TriacRegulationInput tin;
-      tin.net_power_w = grid_net_w;
-      tin.current_triac_delay_percent_f = g_triac_delay_percent_f[0];
-      tin.override_state = act.OverrideState;
-      tin.override_triac_percent = act.OverrideTriacPercent;
-      tin.actif = act.Actif;
-      tin.wall_decihours = wall_clock_decihours;
-      tin.temperature = temperature;
-      tin.loop_gain = act.Ki;
-      tin.triac_threshold_min_w = actions_logic_threshold_min(sched, wall_clock_decihours);
-      tin.triac_max_percent = actions_logic_threshold_max(sched, wall_clock_decihours);
-      tin.schedule_type_triac = schedule_type;
-      tin.kp = act.Kp;
-      tin.ki = act.Ki;
-      tin.kd = act.Kd;
-      tin.pid_enabled = act.PID;
-      tin.expert_regulation_mode = expert_regulation_mode;
-      tin.regulation_gain = regulation_gain;
-      tin.itmode_ok = itmode_ok;
-      const TriacRegulationOutput tout = helio_regulation_compute_triac(tin);
-      g_triac_delay_percent_f[0] = tout.triac_delay_percent_f;
-      g_triac_delay_percent[0] = static_cast<int>(tout.triac_delay_percent_f + 0.5f);
+      const unsigned long pmqttTriacStaleMs =
+          poll_period_ms > 0 ? static_cast<unsigned long>(poll_period_ms) * 3U : 15000U;
+      const bool pmqttTriacLive = act.OverrideState == ACTION_OVERRIDE_AUTO &&
+                                  pmqtt_bindings_triac_open_percent_live(pmqttTriacStaleMs);
+      TriacRegulationOutput tout{};
+      tout.triac_on = (100 - g_triac_delay_percent[0]) > 0;
+      if (!pmqttTriacLive) {
+        TriacRegulationInput tin;
+        tin.net_power_w = grid_net_w;
+        tin.current_triac_delay_percent_f = g_triac_delay_percent_f[0];
+        tin.override_state = act.OverrideState;
+        tin.override_triac_percent = act.OverrideTriacPercent;
+        tin.actif = act.Actif;
+        tin.wall_decihours = wall_clock_decihours;
+        tin.temperature = temperature;
+        tin.loop_gain = act.Ki;
+        tin.triac_threshold_min_w = actions_logic_threshold_min(sched, wall_clock_decihours);
+        tin.triac_max_percent = actions_logic_threshold_max(sched, wall_clock_decihours);
+        tin.schedule_type_triac = schedule_type;
+        tin.kp = act.Kp;
+        tin.ki = act.Ki;
+        tin.kd = act.Kd;
+        tin.pid_enabled = act.PID;
+        tin.expert_regulation_mode = expert_regulation_mode;
+        tin.regulation_gain = regulation_gain;
+        tin.itmode_ok = itmode_ok;
+        tout = helio_regulation_compute_triac(tin);
+        g_triac_delay_percent_f[0] = tout.triac_delay_percent_f;
+        g_triac_delay_percent[0] = static_cast<int>(tout.triac_delay_percent_f + 0.5f);
+      }
       if (act.OverrideState == ACTION_OVERRIDE_AUTO) {
         const int triac_open_fb = 100 - g_triac_delay_percent[0];
         const int second_net_w = second_active_import_w - second_active_export_w;

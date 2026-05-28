@@ -190,6 +190,13 @@ const send = <T>(method: string, url: string, body: unknown, opts: FetchOpts = {
     opts,
   );
 
+function isWifiEmptyInputError(err: unknown): boolean {
+  if (!(err instanceof ApiError) || err.status !== 400) return false;
+  if (!err.body || typeof err.body !== "object") return false;
+  const body = err.body as { error?: unknown; message?: unknown };
+  return body.error === "json_parse" && body.message === "EmptyInput";
+}
+
 export interface PostFirmwareOtaOpts {
   signal?: AbortSignal;
   /** Default 180000 (3 minutes). */
@@ -307,8 +314,23 @@ export const api = {
     send<ApiOk>("POST", "/api/v1/system/reboot", {}, opts),
 
   getWifi: (opts?: FetchOpts) => get<WifiInfo>("/api/v1/wifi", opts),
-  putWifi: (body: { ssid: string; password: string; persist?: boolean }, opts?: FetchOpts) =>
-    send<ApiOk>("PUT", "/api/v1/wifi", body, opts),
+  putWifi: async (
+    body: { ssid: string; password: string; persist?: boolean },
+    opts?: FetchOpts,
+  ) => {
+    try {
+      return await send<ApiOk>("PUT", "/api/v1/wifi", body, opts);
+    } catch (e) {
+      if (!isWifiEmptyInputError(e)) throw e;
+      const qp = new URLSearchParams({
+        ssid: body.ssid,
+        password: body.password ?? "",
+        persist: body.persist === false ? "0" : "1",
+      });
+      // Some captive portal paths/proxies strip JSON bodies on PUT.
+      return send<ApiOk>("PUT", `/api/v1/wifi?${qp.toString()}`, {}, opts);
+    }
+  },
   /** Single GET; for in-progress scans the firmware may return HTTP 202 (still `ok` in fetch). */
   scanWifi: (opts?: FetchOpts) => get<WifiScanResult>("/api/v1/wifi/scan", opts),
   /**

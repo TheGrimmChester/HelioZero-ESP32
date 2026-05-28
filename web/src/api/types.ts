@@ -266,13 +266,31 @@ export interface HistoryPower {
 export interface HistoryEnergyDaily {
   delta_wh_per_day: number[];
   count: number;
+  total_count?: number;
+  offset?: number;
+  limit?: number;
+  has_more?: boolean;
   idx_prom_du_jour: number;
+  days_capacity?: number;
+  days_retained?: number;
   /** Today's calendar date (device local TZ) when NTP sync is valid. */
   reference_date_iso?: string;
   /** ISO dates aligned with `delta_wh_per_day` (index 0 = oldest). */
   day_dates_iso?: string[];
   import_wh_per_day?: number[];
   export_wh_per_day?: number[];
+  ch1_import_wh_per_day?: number[];
+  ch1_export_wh_per_day?: number[];
+  ch2_import_wh_per_day?: number[];
+  ch2_export_wh_per_day?: number[];
+  items?: Array<{
+    date_iso: string;
+    delta_wh: number;
+    ch1_import_wh: number;
+    ch1_export_wh: number;
+    ch2_import_wh: number;
+    ch2_export_wh: number;
+  }>;
 }
 
 export interface ApiOk {

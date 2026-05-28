@@ -27,6 +27,7 @@ const EXPECTED_PATHS = [
   "/api/v1/health/self-test/run",
   "/api/v1/health/self-test/skip",
   "/api/v1/history/energy/daily",
+  "/api/v1/history/energy/daily/import",
   "/api/v1/history/power",
   "/api/v1/history/reset",
   "/api/v1/measurements",

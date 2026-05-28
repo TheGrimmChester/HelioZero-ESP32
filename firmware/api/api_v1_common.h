@@ -134,9 +134,15 @@ static const int kHistDefaultMax = 200;
 static const int kHistAbsMax = 600;
 /** JSON cap for GET /api/v1/history/power (32 KB often fails to allocate on ESP32 heap). */
 static const size_t kHistPowerJsonCap = 12288;
+/** JSON cap for GET /api/v1/history/energy/daily (page + items). */
+/** Max JSON pool for daily history page (proportional alloc uses less per request). */
+static const size_t kHistEnergyDailyJsonCap = 16384;
+static const size_t kHistEnergyDailyJsonPerRow = 320;
 static const size_t kWifiBodyMax = 512;
 static const size_t kTimeBodyMax = 512;
 static const size_t kArduinoOtaBodyMax = 512;
+static const size_t kHistoryDailyImportBodyMax = 32768;
+static const int kHistoryDailyPageMax = 10;
 static const int kEepromSize = 4090;
 static const int kAdrParaActions = 1507;
 static const size_t kHttpAuthBodyMax = 128;
@@ -183,6 +189,7 @@ void handle_post_action_override(int idx);
 void handle_clear_action_override(int idx);
 void handle_get_history_power();
 void handle_get_history_energy_daily();
+void handle_post_history_energy_daily_import();
 void handle_put_gpio();
 void handle_get_pwm();
 void handle_put_pwm();

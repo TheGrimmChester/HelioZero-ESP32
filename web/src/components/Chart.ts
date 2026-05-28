@@ -54,13 +54,18 @@ function flatYMax(yLabel: string | undefined): number {
   return 500;
 }
 
-function collectYValues(data: AlignedData, seriesSpecs: SeriesSpec[]): {
+function collectYValues(
+  data: AlignedData,
+  seriesSpecs: SeriesSpec[],
+  isSeriesVisible?: (seriesIndex: number) => boolean,
+): {
   y: number[];
   y2: number[];
 } {
   const y: number[] = [];
   const y2: number[] = [];
   for (let si = 1; si < data.length; si++) {
+    if (isSeriesVisible && !isSeriesVisible(si)) continue;
     const spec = seriesSpecs[si - 1];
     const bucket = spec?.scale === "y2" ? y2 : y;
     const series = data[si];
@@ -89,8 +94,9 @@ function yScalesForData(
   seriesSpecs: SeriesSpec[],
   yLabel: string | undefined,
   y2Label: string | undefined,
+  isSeriesVisible?: (seriesIndex: number) => boolean,
 ): UplotOptions["scales"] {
-  const { y, y2 } = collectYValues(data, seriesSpecs);
+  const { y, y2 } = collectYValues(data, seriesSpecs, isSeriesVisible);
   const hasY2 = seriesSpecs.some((s) => s.scale === "y2");
   const x = { time: false };
   const scales: UplotOptions["scales"] = { x };
@@ -204,6 +210,10 @@ export function buildChart(opts: ChartOpts): ChartHandle {
       scales: yScalesForData(lastData, opts.series, opts.yLabel, opts.y2Label),
       axes,
       series: seriesDefs,
+      hooks: {
+        // Recompute y-axis range when user toggles series visibility.
+        setSeries: [() => applyScales()],
+      },
     };
   }
 
@@ -214,6 +224,7 @@ export function buildChart(opts: ChartOpts): ChartHandle {
       opts.series,
       opts.yLabel,
       opts.y2Label,
+      (seriesIndex) => chart?.series?.[seriesIndex]?.show !== false,
     );
     const yr = scales?.y?.range;
     if (Array.isArray(yr) && yr.length >= 2) {

@@ -8,6 +8,32 @@ void eepromClearConsumptionHistory(void);
 void eepromLoadMorningDayEnergy(void);
 void helio_on_clock_tick(void);
 String eepromFormatYearlyEnergyHistory(void);
+int eepromHistoryDaysCapacity(void);
+int eepromHistoryDaysRetained(void);
+bool eepromHistoryReferenceDateIso(String &isoOut);
+bool eepromHistoryReadDailyMetrics(
+    int logicalDayIdx,
+    long &ch1ImportWh,
+    long &ch1ExportWh,
+    long &ch2ImportWh,
+    long &ch2ExportWh);
+bool eepromHistoryWriteDailyMetrics(
+    int logicalDayIdx,
+    long ch1ImportWh,
+    long ch1ExportWh,
+    long ch2ImportWh,
+    long ch2ExportWh);
+bool eepromHistoryImportDailyMetrics(
+    const long ch1ImportWh[],
+    const long ch1ExportWh[],
+    const long ch2ImportWh[],
+    const long ch2ExportWh[],
+    int count,
+    const char *latestDateIso,
+    String &err);
+/** Flush staged daily ring to NVS when pending (also called from helio_loop). */
+void eepromHistoryServicePendingCommit(void);
+bool eepromHistoryHasPendingCommit(void);
 unsigned long eepromReadLayoutKey(void);
 void loadConfigFromEeprom(void);
 int persistConfigToEeprom(void);

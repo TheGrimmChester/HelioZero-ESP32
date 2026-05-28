@@ -82,6 +82,13 @@ export interface PollWifiScanOpts extends FetchOpts {
   pollIntervalMs?: number;
 }
 
+export interface HistoryEnergyDailyQuery {
+  limit?: number;
+  offset?: number;
+  fromDateIso?: string;
+  toDateIso?: string;
+}
+
 async function jsonFetch<T>(
   url: string,
   init: RequestInit,
@@ -309,6 +316,69 @@ export const api = {
     ),
   getHistoryEnergyDaily: (opts?: FetchOpts) =>
     get<HistoryEnergyDaily>("/api/v1/history/energy/daily", opts),
+  getHistoryEnergyDailyPage: (query: HistoryEnergyDailyQuery = {}, opts?: FetchOpts) => {
+    const p = new URLSearchParams();
+    if (typeof query.limit === "number") p.set("limit", String(query.limit));
+    if (typeof query.offset === "number") p.set("offset", String(query.offset));
+    if (query.fromDateIso) p.set("from_date", query.fromDateIso);
+    if (query.toDateIso) p.set("to_date", query.toDateIso);
+    const q = p.toString();
+    const url = q
+      ? `/api/v1/history/energy/daily?${q}`
+      : "/api/v1/history/energy/daily";
+    return get<HistoryEnergyDaily>(url, opts);
+  },
+  getHistoryEnergyDailyRangeAll: async (
+    fromDateIso: string,
+    toDateIso: string,
+    opts?: FetchOpts,
+  ): Promise<HistoryEnergyDaily> => {
+    const pageLimit = 10;
+    let offset = 0;
+    const merged: HistoryEnergyDaily = {
+      delta_wh_per_day: [],
+      count: 0,
+      idx_prom_du_jour: 0,
+      day_dates_iso: [],
+      import_wh_per_day: [],
+      export_wh_per_day: [],
+      ch1_import_wh_per_day: [],
+      ch1_export_wh_per_day: [],
+      ch2_import_wh_per_day: [],
+      ch2_export_wh_per_day: [],
+      items: [],
+    };
+    for (;;) {
+      const page = await api.getHistoryEnergyDailyPage(
+        { fromDateIso, toDateIso, limit: pageLimit, offset },
+        opts,
+      );
+      if (offset === 0) {
+        merged.idx_prom_du_jour = page.idx_prom_du_jour;
+        merged.reference_date_iso = page.reference_date_iso;
+        merged.days_capacity = page.days_capacity;
+        merged.days_retained = page.days_retained;
+      }
+      merged.delta_wh_per_day.push(...(page.delta_wh_per_day || []));
+      merged.day_dates_iso?.push(...(page.day_dates_iso || []));
+      merged.import_wh_per_day?.push(...(page.import_wh_per_day || []));
+      merged.export_wh_per_day?.push(...(page.export_wh_per_day || []));
+      merged.ch1_import_wh_per_day?.push(...(page.ch1_import_wh_per_day || []));
+      merged.ch1_export_wh_per_day?.push(...(page.ch1_export_wh_per_day || []));
+      merged.ch2_import_wh_per_day?.push(...(page.ch2_import_wh_per_day || []));
+      merged.ch2_export_wh_per_day?.push(...(page.ch2_export_wh_per_day || []));
+      merged.items?.push(...(page.items || []));
+      const pageCount = page.count || (page.delta_wh_per_day?.length ?? 0);
+      offset += pageCount;
+      if (!page.has_more || pageCount <= 0) break;
+    }
+    merged.count = merged.delta_wh_per_day.length;
+    merged.total_count = merged.count;
+    merged.limit = pageLimit;
+    merged.offset = 0;
+    merged.has_more = false;
+    return merged;
+  },
 
   reboot: (opts?: FetchOpts) =>
     send<ApiOk>("POST", "/api/v1/system/reboot", {}, opts),

@@ -38,6 +38,7 @@ void Init_ApiRoutes() {
 
   server.on("/api/v1/history/power", HTTP_GET, handle_get_history_power);
   server.on("/api/v1/history/energy/daily", HTTP_GET, handle_get_history_energy_daily);
+  server.on("/api/v1/history/energy/daily/import", HTTP_POST, handle_post_history_energy_daily_import);
   server.on("/api/v1/gpio", HTTP_GET, handle_get_gpio);
   server.on("/api/v1/gpio", HTTP_PUT, handle_put_gpio);
   server.on("/api/v1/pwm", HTTP_GET, handle_get_pwm);

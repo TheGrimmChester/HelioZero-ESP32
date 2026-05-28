@@ -1,7 +1,7 @@
 import type { RouteCtx } from "../router";
 import { h } from "../utils/dom";
 import { api } from "../api/client";
-import { poll, deviceInfo, localePref } from "../state/store";
+import { poll, deviceInfo } from "../state/store";
 import { buildChart } from "../components/Chart";
 import { getStrings } from "../i18n";
 import { routeCleanup } from "../utils/routeLifecycle";
@@ -9,9 +9,10 @@ import { openDialog } from "../components/Dialog";
 import { toast } from "../components/Toast";
 import { go } from "../router";
 import type { HistoryEnergyDaily, HistoryPower } from "../api/types";
-import { fmtEnergyWh, isProbeTemperatureReading } from "../utils/format";
+import { isProbeTemperatureReading } from "../utils/format";
 import { powerChartSeriesSpecs } from "../utils/chartChannelColors";
-import { energyDayIsoDates } from "../utils/historyEnergy";
+import { energyDayIsoDates, historyDailyDayCount } from "../utils/historyEnergy";
+import { buildHistoryDailyImportCsv } from "../utils/historyDailyCsv";
 import {
   buildPowerTimeAxisHours,
   buildPowerTimeAxisSeconds,
@@ -23,10 +24,14 @@ import {
 import { buildPageHeader } from "../components/ui/pageHeader";
 import { pmqttBindingsMissing } from "../utils/pmqttBindings";
 
-function monthShortTick(m: number): string {
-  const loc = localePref.get() === "fr" ? "fr-FR" : "en-US";
-  const mm = Math.max(0, Math.min(11, m));
-  return new Date(2000, mm, 1).toLocaleDateString(loc, { month: "short" });
+function isoDateShiftDays(isoDate: string, deltaDays: number): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  d.setDate(d.getDate() + deltaDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
 }
 
 function historySeriesHasProbeTemp(series: number[]): boolean {
@@ -48,25 +53,19 @@ function resolveProbeTempVisible(
   return false;
 }
 
-const ENERGY_CHART_MAX_POINTS = 52;
-const ENERGY_TABLE_DAYS = 31;
+const ENERGY_TABLE_DAYS = 90;
 
-function downsampleDailyWh(values: number[], maxPoints: number): number[] {
-  if (values.length <= maxPoints) return values;
-  const out: number[] = [];
-  const step = values.length / maxPoints;
-  for (let i = 0; i < maxPoints; i++) {
-    const start = Math.floor(i * step);
-    const end = Math.min(values.length, Math.floor((i + 1) * step));
-    let sum = 0;
-    let n = 0;
-    for (let j = start; j < end; j++) {
-      sum += values[j] ?? 0;
-      n++;
-    }
-    out.push(n > 0 ? Math.round(sum / n) : 0);
-  }
-  return out;
+function valueAt(arr: number[] | undefined, idx: number): number {
+  const v = arr?.[idx];
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+function formatKwh2(wh: number): string {
+  return `${(wh / 1000).toFixed(2)} kWh`;
+}
+
+function toKwh(wh: number): number {
+  return Math.round((wh / 1000) * 100) / 100;
 }
 
 export function mountHistory(ctx: RouteCtx): () => void {
@@ -160,12 +159,27 @@ export function mountHistory(ctx: RouteCtx): () => void {
   });
   const energyChart = buildChart({
     title: T.history.chart1yEnergyTitle,
-    yLabel: "Wh",
+    yLabel: "kWh",
     height: 180,
     intLegend: false,
-    series: [{ label: T.history.energySeries, color: "var(--c-energy)", unit: "Wh" }],
-    data: [[0], [0]] as unknown as [number[], number[]],
-    xFormat: (idx) => monthShortTick(Math.floor(idx) % 12),
+    series: [
+      { label: T.history.energySeriesCh1Import, color: "var(--c-chart-house-p)", unit: "kWh" },
+      { label: T.history.energySeriesCh1Export, color: "var(--c-chart-house-s)", unit: "kWh" },
+      { label: T.history.energySeriesCh2Import, color: "var(--c-chart-triac-p)", unit: "kWh" },
+      { label: T.history.energySeriesCh2Export, color: "var(--c-chart-triac-s)", unit: "kWh" },
+    ],
+    data: [[0], [0], [0], [0], [0]] as unknown as [
+      number[],
+      number[],
+      number[],
+      number[],
+      number[],
+    ],
+    xFormat: (idx) => {
+      const i = Math.max(0, Math.floor(idx));
+      const d = lastEnergy?.day_dates_iso?.[i];
+      return d ? d.slice(5) : String(i + 1);
+    },
   });
 
   const energyTableBody = h("tbody", {});
@@ -223,7 +237,10 @@ export function mountHistory(ctx: RouteCtx): () => void {
               "tr",
               {},
               h("th", {}, T.history.colDay),
-              h("th", { class: "num" }, T.history.colDeltaWh),
+              h("th", { class: "num" }, T.history.colCh1ImportWh),
+              h("th", { class: "num" }, T.history.colCh1ExportWh),
+              h("th", { class: "num" }, T.history.colCh2ImportWh),
+              h("th", { class: "num" }, T.history.colCh2ExportWh),
             ),
           ),
           energyTableBody,
@@ -347,56 +364,69 @@ export function mountHistory(ctx: RouteCtx): () => void {
 
   function applyEnergy(j: HistoryEnergyDaily) {
     lastEnergy = j;
-    const arr = j.delta_wh_per_day || [];
+    const dayCount = historyDailyDayCount(j);
     const iso =
-      j.day_dates_iso?.length === arr.length
+      j.day_dates_iso?.length === dayCount
         ? j.day_dates_iso
         : energyDayIsoDates(
-            arr.length,
+            dayCount,
             j.reference_date_iso,
             deviceDateTime,
           );
-    const chartVals = downsampleDailyWh(arr, ENERGY_CHART_MAX_POINTS);
-    const xs = Array.from({ length: chartVals.length }, (_, i) => i);
-    energyChart.setData([xs, chartVals] as unknown as [number[], number[]]);
+    const chartStart = Math.max(0, dayCount - ENERGY_TABLE_DAYS);
+    const chartCount = dayCount - chartStart;
+    const xs = Array.from({ length: chartCount }, (_, i) => i);
+    const ch1ImportSeries = Array.from({ length: chartCount }, (_, i) =>
+      toKwh(valueAt(j.ch1_import_wh_per_day, chartStart + i)),
+    );
+    const ch1ExportSeries = Array.from({ length: chartCount }, (_, i) =>
+      toKwh(valueAt(j.ch1_export_wh_per_day, chartStart + i)),
+    );
+    const ch2ImportSeries = Array.from({ length: chartCount }, (_, i) =>
+      toKwh(valueAt(j.ch2_import_wh_per_day, chartStart + i)),
+    );
+    const ch2ExportSeries = Array.from({ length: chartCount }, (_, i) =>
+      toKwh(valueAt(j.ch2_export_wh_per_day, chartStart + i)),
+    );
+    energyChart.setData([
+      xs,
+      ch1ImportSeries,
+      ch1ExportSeries,
+      ch2ImportSeries,
+      ch2ExportSeries,
+    ] as unknown as [number[], number[], number[], number[], number[]]);
     energyTableBody.replaceChildren();
-    const tableStart = Math.max(0, arr.length - ENERGY_TABLE_DAYS);
-    for (let i = tableStart; i < arr.length; i++) {
+    const tableStart = chartStart;
+    for (let i = dayCount - 1; i >= tableStart; i--) {
       const dayLabel = iso[i] ?? "—";
-      const e = fmtEnergyWh(arr[i]);
+      const ch1Import = formatKwh2(valueAt(j.ch1_import_wh_per_day, i));
+      const ch1Export = formatKwh2(valueAt(j.ch1_export_wh_per_day, i));
+      const ch2Import = formatKwh2(valueAt(j.ch2_import_wh_per_day, i));
+      const ch2Export = formatKwh2(valueAt(j.ch2_export_wh_per_day, i));
       energyTableBody.append(
         h(
           "tr",
           {},
           h("td", {}, dayLabel),
-          h("td", { class: "num" }, `${e.value} ${e.unit}`),
+          h("td", { class: "num" }, ch1Import),
+          h("td", { class: "num" }, ch1Export),
+          h("td", { class: "num" }, ch2Import),
+          h("td", { class: "num" }, ch2Export),
         ),
       );
     }
   }
 
   function downloadCsv() {
-    const rows: string[] = ["section,key,value"];
-    if (lastPower) {
-      rows.push(`power,window,${lastPower.window || powerWindow}`);
-      (lastPower.house_active_w || []).forEach((v, i) =>
-        rows.push(`power,house_active_w_${i},${v}`),
-      );
-      (lastPower.triac_active_w || []).forEach((v, i) =>
-        rows.push(`power,triac_active_w_${i},${v}`),
-      );
+    if (!lastEnergy) {
+      toast(T.history.loadError, "error");
+      return;
     }
-    if (lastEnergy) {
-      const iso = lastEnergy.day_dates_iso || [];
-      (lastEnergy.delta_wh_per_day || []).forEach((v, i) => {
-        rows.push(`energy,date_iso,${iso[i] ?? ""}`);
-        rows.push(`energy,delta_wh_day_${i},${v}`);
-      });
-    }
-    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const csv = buildHistoryDailyImportCsv(lastEnergy, deviceDateTime);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const a = h("a", {
       href: URL.createObjectURL(blob),
-      download: "helio-zero-history.csv",
+      download: "helio-zero-history-daily.csv",
     }) as HTMLAnchorElement;
     a.click();
     URL.revokeObjectURL(a.href);
@@ -458,7 +488,12 @@ export function mountHistory(ctx: RouteCtx): () => void {
 
   async function loadEnergy() {
     try {
-      const j = await api.getHistoryEnergyDaily({ signal });
+      const nowIso =
+        lastEnergy?.reference_date_iso ??
+        (deviceDateTime ? energyDayIsoDates(1, undefined, deviceDateTime)[0] : undefined) ??
+        new Date().toISOString().slice(0, 10);
+      const fromIso = isoDateShiftDays(nowIso, -(ENERGY_TABLE_DAYS - 1)) ?? nowIso;
+      const j = await api.getHistoryEnergyDailyRangeAll(fromIso, nowIso, { signal });
       applyEnergy(j);
     } catch {
       toast(T.history.loadError, "error");

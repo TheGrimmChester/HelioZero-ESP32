@@ -9,6 +9,7 @@
 #include "actions_api.h"
 #include "api_access_token.h"
 #include <EEPROM.h>
+#include <Preferences.h>
 #include <string>
 
 /*
@@ -28,6 +29,170 @@
 #define adr_currentDateStr kEepromAdrcurrentDateStr
 #define adr_lastStockConso kEepromAdrLastStockConso
 #define adr_ParaActions kEepromAdrParaActions
+
+namespace {
+constexpr int kHistoryDaysRetained = 90;
+constexpr int kDailyMetricSlotBytes = 16; // 4 x int32 (CH1/CH2 import+export)
+constexpr int kDailyMetricFieldBytes = 4;
+constexpr const char *kHistoryNvsNamespace = "histdaily";
+constexpr const char *kHistoryNvsIndexKey = "idx";
+constexpr const char *kHistoryNvsBlobKey = "blob";
+
+struct DailyMetricsSlot {
+  int32_t ch1ImportWh;
+  int32_t ch1ExportWh;
+  int32_t ch2ImportWh;
+  int32_t ch2ExportWh;
+};
+
+struct HistoryRingCache {
+  std::vector<DailyMetricsSlot> slots;
+  bool valid = false;
+};
+
+HistoryRingCache g_historyRingCache;
+bool g_historyNvsPendingCommit = false;
+
+constexpr uint32_t kHistoryNvsCommitMinFreeHeap = 18000;
+
+bool history_use_nvs();
+bool history_nvs_save_blob(const std::vector<DailyMetricsSlot> &slots);
+
+void history_mark_nvs_pending() {
+  if (history_use_nvs()) g_historyNvsPendingCommit = true;
+}
+
+bool history_commit_pending_nvs() {
+  if (!g_historyNvsPendingCommit || !history_use_nvs()) return true;
+  if (!g_historyRingCache.valid) {
+    g_historyNvsPendingCommit = false;
+    return true;
+  }
+  if (ESP.getFreeHeap() < kHistoryNvsCommitMinFreeHeap) return false;
+  if (!history_nvs_save_blob(g_historyRingCache.slots)) return false;
+  g_historyNvsPendingCommit = false;
+  return true;
+}
+
+int history_max_by_eeprom_region() {
+  return (kEepromAdrTriacImportJ0 - adr_HistoAn) / kDailyMetricSlotBytes;
+}
+
+bool history_use_nvs() { return kHistoryDaysRetained > history_max_by_eeprom_region(); }
+
+int history_days_capacity() {
+  if (history_use_nvs()) return kHistoryDaysRetained;
+  const int maxByRegion = history_max_by_eeprom_region();
+  return maxByRegion < kHistoryDaysRetained ? maxByRegion : kHistoryDaysRetained;
+}
+
+int metric_addr_for(int ringIndex, int fieldIdx) {
+  return adr_HistoAn + ringIndex * kDailyMetricSlotBytes + fieldIdx * kDailyMetricFieldBytes;
+}
+
+bool history_nvs_load_blob(std::vector<DailyMetricsSlot> &slotsOut) {
+  const int cap = history_days_capacity();
+  slotsOut.assign(cap, DailyMetricsSlot{});
+  Preferences prefs;
+  if (!prefs.begin(kHistoryNvsNamespace, true)) return false;
+  const size_t expected = static_cast<size_t>(cap) * sizeof(DailyMetricsSlot);
+  const size_t got = prefs.getBytes(kHistoryNvsBlobKey, slotsOut.data(), expected);
+  prefs.end();
+  if (got != expected) {
+    for (int i = 0; i < cap; i++) slotsOut[i] = DailyMetricsSlot{};
+  }
+  return true;
+}
+
+bool history_nvs_save_blob(const std::vector<DailyMetricsSlot> &slots) {
+  Preferences prefs;
+  if (!prefs.begin(kHistoryNvsNamespace, false)) return false;
+  const size_t wrote = prefs.putBytes(kHistoryNvsBlobKey, slots.data(), slots.size() * sizeof(DailyMetricsSlot));
+  prefs.end();
+  return wrote == slots.size() * sizeof(DailyMetricsSlot);
+}
+
+bool history_nvs_clear_slots(int cap) {
+  Preferences prefs;
+  if (!prefs.begin(kHistoryNvsNamespace, false)) return false;
+  (void)cap;
+  // Full namespace wipe drops legacy per-slot keys from older layouts.
+  prefs.clear();
+  prefs.end();
+  return true;
+}
+
+void history_ring_cache_invalidate() { g_historyRingCache.valid = false; }
+
+bool history_ring_cache_ensure() {
+  if (!history_use_nvs()) return false;
+  if (g_historyRingCache.valid) return true;
+  g_historyRingCache.valid = history_nvs_load_blob(g_historyRingCache.slots);
+  return g_historyRingCache.valid;
+}
+
+void history_read_slot(int ringIndex, long &ch1ImportWh, long &ch1ExportWh, long &ch2ImportWh, long &ch2ExportWh) {
+  if (history_use_nvs()) {
+    if (!history_ring_cache_ensure() || ringIndex < 0 ||
+        ringIndex >= static_cast<int>(g_historyRingCache.slots.size())) {
+      ch1ImportWh = ch1ExportWh = ch2ImportWh = ch2ExportWh = 0;
+      return;
+    }
+    const DailyMetricsSlot &slot = g_historyRingCache.slots[ringIndex];
+    ch1ImportWh = slot.ch1ImportWh;
+    ch1ExportWh = slot.ch1ExportWh;
+    ch2ImportWh = slot.ch2ImportWh;
+    ch2ExportWh = slot.ch2ExportWh;
+    return;
+  }
+  ch1ImportWh = EEPROM.readLong(metric_addr_for(ringIndex, 0));
+  ch1ExportWh = EEPROM.readLong(metric_addr_for(ringIndex, 1));
+  ch2ImportWh = EEPROM.readLong(metric_addr_for(ringIndex, 2));
+  ch2ExportWh = EEPROM.readLong(metric_addr_for(ringIndex, 3));
+}
+
+void history_write_slot(int ringIndex, long ch1ImportWh, long ch1ExportWh, long ch2ImportWh, long ch2ExportWh) {
+  if (history_use_nvs()) {
+    if (!history_ring_cache_ensure() || ringIndex < 0 || ringIndex >= static_cast<int>(g_historyRingCache.slots.size())) {
+      return;
+    }
+    DailyMetricsSlot slot = {static_cast<int32_t>(ch1ImportWh), static_cast<int32_t>(ch1ExportWh),
+                             static_cast<int32_t>(ch2ImportWh), static_cast<int32_t>(ch2ExportWh)};
+    g_historyRingCache.slots[ringIndex] = slot;
+    g_historyRingCache.valid = true;
+    history_mark_nvs_pending();
+    return;
+  }
+  EEPROM.writeLong(metric_addr_for(ringIndex, 0), ch1ImportWh);
+  EEPROM.writeLong(metric_addr_for(ringIndex, 1), ch1ExportWh);
+  EEPROM.writeLong(metric_addr_for(ringIndex, 2), ch2ImportWh);
+  EEPROM.writeLong(metric_addr_for(ringIndex, 3), ch2ExportWh);
+}
+
+bool parse_ddmmyyyy_to_iso(const String &ddmmyyyy, String &isoOut) {
+  if (ddmmyyyy.length() != 8) return false;
+  const int d = ddmmyyyy.substring(0, 2).toInt();
+  const int m = ddmmyyyy.substring(2, 4).toInt();
+  const int y = ddmmyyyy.substring(4, 8).toInt();
+  if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1970) return false;
+  char out[16];
+  snprintf(out, sizeof(out), "%04d-%02d-%02d", y, m, d);
+  isoOut = String(out);
+  return true;
+}
+
+bool parse_iso_to_ddmmyyyy(const String &iso, String &ddmmyyyyOut) {
+  if (iso.length() != 10 || iso.charAt(4) != '-' || iso.charAt(7) != '-') return false;
+  const int y = iso.substring(0, 4).toInt();
+  const int m = iso.substring(5, 7).toInt();
+  const int d = iso.substring(8, 10).toInt();
+  if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1970) return false;
+  char out[16];
+  snprintf(out, sizeof(out), "%02d%02d%04d", d, m, y);
+  ddmmyyyyOut = String(out);
+  return true;
+}
+} // namespace
 
 static void extension_fields_to_globals(const EepromExtensionFields &f) {
   PmqttTopic = String(f.pmqttTopic.c_str());
@@ -205,11 +370,10 @@ void eepromInit(void) {
 }
 
 void eepromClearConsumptionHistory() {
-  //Mise a zero Zone stockage
   int Adr_SoutInjec = adr_HistoAn;
-  for (int i = 0; i < NbJour; i++) {
+  for (int i = 0; i < (kEepromAdrTriacImportJ0 - adr_HistoAn) / 4; i++) {
     EEPROM.writeLong(Adr_SoutInjec, 0);
-    Adr_SoutInjec = Adr_SoutInjec + 4;
+    Adr_SoutInjec += 4;
   }
   EEPROM.writeULong(kEepromAdrTriacImportJ0, 0);
   EEPROM.writeULong(adr_E_T_injecte0, 0);
@@ -218,6 +382,13 @@ void eepromClearConsumptionHistory() {
   EEPROM.writeString(adr_currentDateStr, "");
   EEPROM.writeUShort(adr_lastStockConso, 0);
   EEPROM.commit();
+  currentDateStr = "";
+  idxPromDuJour = 0;
+  if (history_use_nvs()) {
+    history_nvs_clear_slots(history_days_capacity());
+    history_ring_cache_invalidate();
+    g_historyNvsPendingCommit = false;
+  }
 }
 
 void eepromLoadMorningDayEnergy(void) {
@@ -227,6 +398,8 @@ void eepromLoadMorningDayEnergy(void) {
   EAI_M_J0 = EEPROM.readULong(adr_E_M_injecte0);
   currentDateStr = EEPROM.readString(adr_currentDateStr);
   idxPromDuJour = EEPROM.readUShort(adr_lastStockConso);
+  const int cap = history_days_capacity();
+  if (cap > 0) idxPromDuJour = (idxPromDuJour + cap) % cap;
   if (second_energy_import_wh<EAS_T_J0){
     second_energy_import_wh=EAS_T_J0;
   }
@@ -259,10 +432,14 @@ void helio_on_clock_tick() {
     wall_clock_decihours = hour * 100 + minute * 10 / 6;
     if (currentDateStr != currentDayStr) {  // Midnight rollover
       if (meter_reading_valid && currentDateStr !="") {      // Valid energy data received
-        idxPromDuJour = (idxPromDuJour + 1 + NbJour) % NbJour;
-        // Store start-of-day energy snapshot for yearly history ring
-        long energie = house_energy_import_wh - house_energy_export_wh;  // Net house Wh for the day
-        EEPROM.writeLong(idxPromDuJour * 4, energie);
+        const int cap = history_days_capacity();
+        idxPromDuJour = (idxPromDuJour + 1 + cap) % cap;
+        // Persist complete CH1/CH2 day metrics in ring slot.
+        const long ch1Import = long(house_day_energy_import_wh);
+        const long ch1Export = long(house_day_energy_export_wh);
+        const long ch2Import = long(second_day_energy_import_wh);
+        const long ch2Export = long(second_day_energy_export_wh);
+        history_write_slot(idxPromDuJour, ch1Import, ch1Export, ch2Import, ch2Export);
         EEPROM.writeULong(kEepromAdrTriacImportJ0, long(second_energy_import_wh));
         EEPROM.writeULong(adr_E_T_injecte0, long(second_energy_export_wh));
         EEPROM.writeULong(kEepromAdrHouseImportJ0, long(house_energy_import_wh));
@@ -278,23 +455,152 @@ void helio_on_clock_tick() {
 }
 String eepromFormatYearlyEnergyHistory(void) {
   String S = "";
-  int Adr_SoutInjec = 0;
-  long EnergieJour = 0;
-  long DeltaEnergieJour = 0;
-  int iS = 0;
-  long lastDay = 0;
-
-  for (int i = 0; i < NbJour; i++) {
-    iS = (idxPromDuJour + i + 1) % NbJour;
-    Adr_SoutInjec = adr_HistoAn + iS * 4;
-    EnergieJour = EEPROM.readLong(Adr_SoutInjec);
-    if (lastDay == 0) { lastDay = EnergieJour; }
-    DeltaEnergieJour = EnergieJour - lastDay;
-    lastDay = EnergieJour;
-    S += String(DeltaEnergieJour) + ",";
+  const int cap = history_days_capacity();
+  for (int i = 0; i < cap; i++) {
+    const int iS = (idxPromDuJour + i + 1) % cap;
+    long ch1Import = 0, ch1Export = 0, ch2Import = 0, ch2Export = 0;
+    history_read_slot(iS, ch1Import, ch1Export, ch2Import, ch2Export);
+    const long delta = ch1Import - ch1Export;
+    S += String(delta) + ",";
   }
   return S;
 }
+
+int eepromHistoryDaysCapacity(void) { return history_days_capacity(); }
+int eepromHistoryDaysRetained(void) { return kHistoryDaysRetained; }
+
+bool eepromHistoryReferenceDateIso(String &isoOut) {
+  if (time_sync_valid) {
+    time_t now = time(NULL);
+    struct tm dTm;
+#if defined(ESP_PLATFORM)
+    localtime_r(&now, &dTm);
+#else
+    struct tm *pTime = localtime(&now);
+    if (!pTime) return false;
+    dTm = *pTime;
+#endif
+    char isoDay[16];
+    strftime(isoDay, sizeof(isoDay), "%Y-%m-%d", &dTm);
+    isoOut = String(isoDay);
+    return true;
+  }
+  return parse_ddmmyyyy_to_iso(currentDateStr, isoOut);
+}
+
+bool eepromHistoryReadDailyMetrics(
+    int logicalDayIdx,
+    long &ch1ImportWh,
+    long &ch1ExportWh,
+    long &ch2ImportWh,
+    long &ch2ExportWh) {
+  const int cap = history_days_capacity();
+  if (logicalDayIdx < 0 || logicalDayIdx >= cap) return false;
+  const int ringIdx = (idxPromDuJour + logicalDayIdx + 1) % cap;
+  history_read_slot(ringIdx, ch1ImportWh, ch1ExportWh, ch2ImportWh, ch2ExportWh);
+  return true;
+}
+
+bool eepromHistoryWriteDailyMetrics(
+    int logicalDayIdx,
+    long ch1ImportWh,
+    long ch1ExportWh,
+    long ch2ImportWh,
+    long ch2ExportWh) {
+  const int cap = history_days_capacity();
+  if (logicalDayIdx < 0 || logicalDayIdx >= cap) return false;
+  const int ringIdx = (idxPromDuJour + logicalDayIdx + 1) % cap;
+  history_write_slot(ringIdx, ch1ImportWh, ch1ExportWh, ch2ImportWh, ch2ExportWh);
+  return true;
+}
+
+bool eepromHistoryImportDailyMetrics(
+    const long ch1ImportWh[],
+    const long ch1ExportWh[],
+    const long ch2ImportWh[],
+    const long ch2ExportWh[],
+    int count,
+    const char *latestDateIso,
+    String &err) {
+  const int cap = history_days_capacity();
+  if (count <= 0) {
+    err = "csv has no valid data rows";
+    return false;
+  }
+  if (count > cap) {
+    err = "csv exceeds retained history capacity";
+    return false;
+  }
+  if (history_use_nvs()) {
+    if (!history_ring_cache_ensure() && cap > 0) {
+      g_historyRingCache.slots.assign(static_cast<size_t>(cap), DailyMetricsSlot{});
+      g_historyRingCache.valid = true;
+    } else if (static_cast<int>(g_historyRingCache.slots.size()) != cap) {
+      g_historyRingCache.slots.assign(static_cast<size_t>(cap), DailyMetricsSlot{});
+      g_historyRingCache.valid = true;
+    }
+    idxPromDuJour = cap - 1;
+    const int startLogical = cap - count;
+    for (int i = 0; i < count; i++) {
+      const int logical = startLogical + i;
+      const int ringIdx = (idxPromDuJour + logical + 1) % cap;
+      g_historyRingCache.slots[ringIdx] = DailyMetricsSlot{
+          static_cast<int32_t>(ch1ImportWh[i]), static_cast<int32_t>(ch1ExportWh[i]),
+          static_cast<int32_t>(ch2ImportWh[i]), static_cast<int32_t>(ch2ExportWh[i])};
+      if ((i % 8) == 0) delay(0);
+    }
+    history_mark_nvs_pending();
+    if (latestDateIso == nullptr || latestDateIso[0] == '\0') {
+      err = "invalid latest ISO date";
+      return false;
+    }
+    String dayStamp;
+    if (!parse_iso_to_ddmmyyyy(String(latestDateIso), dayStamp)) {
+      err = "invalid latest ISO date";
+      return false;
+    }
+    currentDateStr = dayStamp;
+    EEPROM.writeString(adr_currentDateStr, currentDateStr);
+    EEPROM.writeUShort(adr_lastStockConso, idxPromDuJour);
+    EEPROM.commit();
+    return true;
+  }
+  const int start = cap - count;
+  // EEPROM ring: zero once via direct writes (no per-slot NVS saves).
+  for (int i = 0; i < cap; i++) {
+    EEPROM.writeLong(metric_addr_for(i, 0), 0);
+    EEPROM.writeLong(metric_addr_for(i, 1), 0);
+    EEPROM.writeLong(metric_addr_for(i, 2), 0);
+    EEPROM.writeLong(metric_addr_for(i, 3), 0);
+  }
+  idxPromDuJour = cap - 1;
+  for (int i = 0; i < count; i++) {
+    const int logical = start + i;
+    if (!eepromHistoryWriteDailyMetrics(
+            logical, ch1ImportWh[i], ch1ExportWh[i], ch2ImportWh[i], ch2ExportWh[i])) {
+      err = "failed to write history slot";
+      return false;
+    }
+  }
+  if (latestDateIso == nullptr || latestDateIso[0] == '\0') {
+    err = "invalid latest ISO date";
+    return false;
+  }
+  String dayStamp;
+  if (!parse_iso_to_ddmmyyyy(String(latestDateIso), dayStamp)) {
+    err = "invalid latest ISO date";
+    return false;
+  }
+  currentDateStr = dayStamp;
+  EEPROM.writeString(adr_currentDateStr, currentDateStr);
+  EEPROM.writeUShort(adr_lastStockConso, idxPromDuJour);
+  EEPROM.commit();
+  return true;
+}
+void eepromHistoryServicePendingCommit(void) { (void)history_commit_pending_nvs(); }
+
+bool eepromHistoryHasPendingCommit(void) { return g_historyNvsPendingCommit; }
+
 unsigned long eepromReadLayoutKey() {
   return EEPROM.readULong(adr_ParaActions);
 }

@@ -166,6 +166,34 @@ paths:
       tags: [History]
       operationId: getHistoryEnergyDaily
       summary: Daily energy deltas (year ring buffer)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 10
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
       responses:
         "200":
           description: Daily Wh deltas
@@ -175,6 +203,30 @@ paths:
                 $ref: "#/components/schemas/HistoryEnergyDaily"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/v1/history/energy/daily/import:
+    post:
+      tags: [History]
+      operationId: postHistoryEnergyDailyImport
+      summary: Import daily CH1/CH2 energy history from CSV
+      requestBody:
+        required: true
+        content:
+          text/csv:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: Import applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
 
   /api/v1/history/reset:
     post:
@@ -1702,6 +1754,60 @@ components:
           type: array
           items:
             type: integer
+        day_dates_iso:
+          type: array
+          items:
+            type: string
+        days_capacity:
+          type: integer
+        days_retained:
+          type: integer
+        total_count:
+          type: integer
+        offset:
+          type: integer
+        limit:
+          type: integer
+        has_more:
+          type: boolean
+        pending_commit:
+          type: boolean
+          description: >
+            True when daily ring is staged in RAM and NVS flush is still pending
+            (see helio_loop commit).
+        ch1_import_wh_per_day:
+          type: array
+          items:
+            type: integer
+        ch1_export_wh_per_day:
+          type: array
+          items:
+            type: integer
+        ch2_import_wh_per_day:
+          type: array
+          items:
+            type: integer
+        ch2_export_wh_per_day:
+          type: array
+          items:
+            type: integer
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              date_iso:
+                type: string
+              delta_wh:
+                type: integer
+              ch1_import_wh:
+                type: integer
+              ch1_export_wh:
+                type: integer
+              ch2_import_wh:
+                type: integer
+              ch2_export_wh:
+                type: integer
 
     RouterConfig:
       type: object

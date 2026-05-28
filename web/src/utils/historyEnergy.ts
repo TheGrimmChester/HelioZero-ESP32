@@ -1,5 +1,16 @@
 /** Map firmware daily energy ring buffer indices to ISO calendar dates. */
 
+import type { HistoryEnergyDaily } from "../api/types";
+
+/** Day slot count from API arrays (prefer explicit dates, then CH metrics). */
+export function historyDailyDayCount(j: HistoryEnergyDaily): number {
+  const dated = j.day_dates_iso?.length ?? 0;
+  if (dated > 0) return dated;
+  const ch1 = j.ch1_import_wh_per_day?.length ?? 0;
+  const ch2 = j.ch2_import_wh_per_day?.length ?? 0;
+  return Math.max(ch1, ch2, j.delta_wh_per_day?.length ?? 0);
+}
+
 /** Device clock: `dd/mm/yyyy HH:MM:SS` (see firmware sync_clock_str). */
 export function parseDeviceDateTime(s: string): Date | null {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(

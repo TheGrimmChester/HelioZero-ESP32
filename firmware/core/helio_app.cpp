@@ -205,6 +205,7 @@ void helio_loop(void) {
   for (int httpDrain = 0; httpDrain < httpDrainMax; httpDrain++) {
     server.handleClient();
   }
+  eepromHistoryServicePendingCommit();
 
   if (tps - previousTempoPollMillis >= 2000) {
     previousTempoPollMillis = tps;

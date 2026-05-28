@@ -106,6 +106,7 @@ void helio_setup(void) {
   esp_task_wdt_reset();
 
   helio_wifi_prepare_hostname();
+  helio_wifi_prepare_stack();
 
   eepromInit();
   eeprom_layout_key = kEepromLayoutInit;
@@ -122,6 +123,7 @@ void helio_setup(void) {
   if (helio_apply_default_mqtt_device_name(MQTTdeviceName) && eepromConfigLoaded) {
     persistConfigToEeprom();
   }
+  helio_wifi_load_sta_from_nvs();
   helio_active_source_refresh_from_global_string();
 
   sntp_set_time_sync_notification_cb(time_sync_notification);
@@ -131,7 +133,7 @@ void helio_setup(void) {
   /* Register HTTP routes before WiFi join so the setup AP can serve /wifi during STA attempts. */
   Init_Server();
 
-  helio_wifi_connect_sta_or_ap(startMillis);
+  helio_wifi_connect_sta_or_ap();
   helio_http_ensure_listening();
 
 #if HELIO_REMOTE_DEBUG

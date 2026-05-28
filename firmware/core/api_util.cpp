@@ -180,6 +180,7 @@ static bool api_auth_ap_setup_bootstrap(WebServer &server) {
     return true;
   }
   if (server.method() == HTTP_POST && uri == "/api/v1/system/factory-reset") return true;
+  if (server.method() == HTTP_POST && uri == "/api/v1/system/reboot") return true;
   return false;
 }
 

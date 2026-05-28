@@ -51,23 +51,67 @@ void handle_get_wifi() {
 void handle_put_wifi() {
   API_AUTH_GUARD();
   String body;
-  if (!api_require_json_body(server, body, kWifiBodyMax, false)) return;
-  StaticJsonDocument<512> doc;
-  DeserializationError e = deserializeJson(doc, body);
-  if (e) {
-    api_error(server, 400, "json_parse", e.c_str());
+  if (!api_require_json_body(server, body, kWifiBodyMax, false)) {
+    Serial.println("WIFI_PUT: rejected request (missing/invalid JSON body)");
     return;
   }
-  const char *newSsid = doc["ssid"] | "";
-  const char *newPassword = doc["password"] | "";
+  Serial.printf(
+      "WIFI_PUT: body_len=%u args=%d content_type=%s\n",
+      static_cast<unsigned>(body.length()),
+      server.args(),
+      server.header("Content-Type").c_str());
+  for (int i = 0; i < server.args(); i++) {
+    const String k = server.argName(i);
+    const String v = server.arg(i);
+    Serial.printf("WIFI_PUT: arg[%d] %s len=%u\n", i, k.c_str(), static_cast<unsigned>(v.length()));
+  }
+  String ssidValue;
+  String passwordValue;
+  bool persist = true;
+  bool parsedFromJson = false;
+  if (body.length() > 0) {
+    StaticJsonDocument<512> doc;
+    DeserializationError e = deserializeJson(doc, body);
+    if (e) {
+      Serial.printf("WIFI_PUT: json_parse error=%s\n", e.c_str());
+      api_error(server, 400, "json_parse", e.c_str());
+      return;
+    }
+    ssidValue = String(doc["ssid"] | "");
+    passwordValue = String(doc["password"] | "");
+    persist = doc["persist"] | true;
+    parsedFromJson = true;
+  } else {
+    // Fallback for captive-portal/proxy clients that submit URL/form args.
+    if (server.hasArg("ssid")) ssidValue = server.arg("ssid");
+    if (server.hasArg("password")) passwordValue = server.arg("password");
+    if (server.hasArg("persist")) {
+      const String rawPersist = server.arg("persist");
+      persist = !(rawPersist == "0" || rawPersist == "false" || rawPersist == "off");
+    }
+    Serial.printf(
+        "WIFI_PUT: empty JSON body; fallback args ssid=%s password=%s persist=%s\n",
+        ssidValue.length() > 0 ? "yes" : "no",
+        passwordValue.length() > 0 ? "yes" : "no",
+        persist ? "true" : "false");
+  }
+  if (!parsedFromJson && ssidValue.length() == 0) {
+    Serial.println("WIFI_PUT: missing payload in both JSON body and args");
+    api_error(server, 400, "json_parse", "EmptyInput");
+    return;
+  }
+  const char *newSsid = ssidValue.c_str();
+  const char *newPassword = passwordValue.c_str();
   if (strlen(newSsid) == 0) {
+    Serial.println("WIFI_PUT: validation error ssid required");
     api_error(server, 400, "validation", "ssid required");
     return;
   }
+  Serial.printf("WIFI_PUT: ssid=\"%s\" pass_len=%u\n", newSsid, static_cast<unsigned>(strlen(newPassword)));
   ssid = String(newSsid);
   password = String(newPassword);
-  bool persist = doc["persist"] | true;
   int addr = persist ? persistConfigToEeprom() : 0;
+  Serial.printf("WIFI_PUT: persist=%s eeprom_bytes=%d\n", persist ? "true" : "false", addr);
   StaticJsonDocument<160> outDoc;
   outDoc["ok"] = true;
   outDoc["persisted"] = persist;
@@ -78,8 +122,10 @@ void handle_put_wifi() {
   serializeJson(outDoc, out);
   api_send_json(server, 200, out);
   if (persist) {
+    Serial.println("WIFI_PUT: scheduling reboot in 2000ms");
     RequestReboot(2000);
   } else {
+    Serial.println("WIFI_PUT: reconnecting in STA mode without reboot");
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     WiFi.begin(ssid.c_str(), password.c_str());
